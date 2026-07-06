@@ -1,0 +1,126 @@
+name: Generate Podcasts
+
+on:
+  schedule:
+    # Default weekly-Sunday slot (13:00 UTC), plus a daily slot for daily
+    # shows. Each matrix job checks its own profile's schedule and exits
+    # early when today isn't that show's day; the in-repo idempotency guard
+    # (episode_exists_for_period) makes duplicate triggers safe.
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Only run this profile (blank = all)"
+        required: false
+        default: ""
+      force:
+        description: "Force regeneration even if this period's episode exists"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: generate-podcasts
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  profiles:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.list.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: List profiles
+        id: list
+        run: |
+          if [ -n "${{ inputs.profile }}" ]; then
+            names='["${{ inputs.profile }}"]'
+          else
+            names=$(ls config/profiles/*.json | xargs -n1 basename | sed 's/\.json$//' | jq -R . | jq -cs .)
+          fi
+          echo "matrix=$names" >> "$GITHUB_OUTPUT"
+          echo "Profiles: $names"
+
+  generate:
+    needs: profiles
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      # Serialize jobs: each show commits its artifacts back to the branch,
+      # and parallel pushes would race.
+      max-parallel: 1
+      matrix:
+        profile: ${{ fromJson(needs.profiles.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check schedule for this profile
+        id: schedule
+        run: |
+          python3 - <<'EOF' >> "$GITHUB_OUTPUT"
+          import json, os
+          from datetime import datetime, timezone
+
+          with open("config/profiles/${{ matrix.profile }}.json") as f:
+              p = json.load(f)
+          schedule = p.get("schedule", "weekly")
+          day = p.get("schedule_day", "sunday").lower()
+          today = datetime.now(timezone.utc).strftime("%A").lower()
+          force = "${{ inputs.force }}" == "true"
+          manual = "${{ github.event_name }}" == "workflow_dispatch"
+          due = schedule == "daily" or today == day or force or manual
+          print(f"due={'true' if due else 'false'}")
+          print(f"note={schedule}/{day} vs today={today}", flush=True)
+          EOF
+          cat "$GITHUB_OUTPUT"
+
+      - name: Set up Python
+        if: steps.schedule.outputs.due == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system dependencies
+        if: steps.schedule.outputs.due == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
+      - name: Install Python dependencies
+        if: steps.schedule.outputs.due == 'true'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Generate episode
+        if: steps.schedule.outputs.due == 'true'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          BRAVE_SEARCH_API_KEY: ${{ secrets.BRAVE_SEARCH_API_KEY }}
+          KAGI_API_KEY: ${{ secrets.KAGI_API_KEY }}
+          COHERE_API_KEY: ${{ secrets.COHERE_API_KEY }}
+          USE_COHERE: ${{ secrets.COHERE_API_KEY != '' && '1' || '' }}
+          AZURE_SPEECH_KEY: ${{ secrets.AZURE_SPEECH_KEY }}
+          AZURE_SPEECH_REGION: ${{ secrets.AZURE_SPEECH_REGION }}
+        run: |
+          FORCE_FLAG=""
+          if [ "${{ inputs.force }}" = "true" ]; then FORCE_FLAG="--force"; fi
+          python podcast_generator.py --profile "${{ matrix.profile }}" $FORCE_FLAG
+
+      - name: Commit generated artifacts
+        if: steps.schedule.outputs.due == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add shows/
+          if git diff --cached --quiet; then
+            echo "No new artifacts to commit"
+          else
+            git pull --rebase origin "${GITHUB_REF_NAME}"
+            git commit -m "Episode: ${{ matrix.profile }} $(date -u +%F)"
+            git push origin "${GITHUB_REF_NAME}"
+          fi

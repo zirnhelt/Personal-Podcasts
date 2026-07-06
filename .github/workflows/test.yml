@@ -1,0 +1,44 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # tests/conftest.py stubs anthropic/openai/pydub/cohere/azure, so only
+      # the light dependencies are needed here — no API keys, no ffmpeg.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest requests feedparser python-dotenv
+
+      - name: Run tests
+        run: python -m pytest tests/ -v
+
+      - name: TRACE gate on shipped profiles
+        run: |
+          python - <<'EOF'
+          import sys, types
+          for m in ("anthropic", "openai", "pydub", "cohere"):
+              sys.modules.setdefault(m, types.ModuleType(m))
+          sys.modules["anthropic"].Anthropic = type("Anthropic", (), {})
+          sys.modules["openai"].OpenAI = type("OpenAI", (), {})
+          sys.modules["pydub"].AudioSegment = type("AudioSegment", (), {})
+          import config_loader, trace
+          names = config_loader.list_podcast_profiles()
+          assert names, "no profiles shipped"
+          for name in names:
+              profile = config_loader.load_podcast_profile(name)
+              t = trace.assert_publishable(profile)
+              print(f"{name}: TRACE {t['total_score']}/{t['total_max']} ({t['verdict']}) — publishable")
+          EOF
