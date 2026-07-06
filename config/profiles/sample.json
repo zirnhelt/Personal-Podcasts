@@ -1,0 +1,51 @@
+{
+  "title": "Sample Signals",
+  "tagline": "A weekly AI-generated deep dive into technology and society",
+
+  "sources": {
+    "opml": "config/feeds.opml",
+    "rss": [],
+    "keywords": ["technology and society", "AI in everyday life"]
+  },
+
+  "scope": "global",
+  "region_hint": "",
+
+  "cadence": "dialog",
+  "depth": "deep_dive",
+  "length_minutes": 15,
+
+  "schedule": "weekly",
+  "schedule_day": "sunday",
+
+  "search": { "brave": true, "kagi": true },
+  "voices": "cariboo_signals",
+
+  "psa": false,
+
+  "base_url": "https://zirnhelt.github.io/Personal-Podcasts/shows/sample/",
+  "author": "Erich Zirnhelt",
+  "language": "en-us",
+  "categories": ["Technology", "Society & Culture"],
+  "email": "zirnhelt@gmail.com",
+
+  "trace": {
+    "producer_url": "https://zirnhelt.github.io/Personal-Podcasts/",
+    "community": "Global / general audience",
+    "ai_generated": true,
+    "ai_role": "primary",
+    "ai_tools": ["Claude", "OpenAI TTS"],
+    "track": "B",
+    "disqualified": false,
+    "scores": {
+      "transparency": 4,
+      "sourceIntegrity": 2,
+      "displacement": 1,
+      "consentAttribution": 2,
+      "benefitFlow": 2,
+      "accountability": 2
+    },
+    "assessment_date": "2026-07-05",
+    "assessed_by": "self"
+  }
+}

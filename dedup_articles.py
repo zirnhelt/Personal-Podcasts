@@ -1,0 +1,301 @@
+#!/usr/bin/env python3
+"""
+Article deduplication for the multi-podcast creator.
+Checks the last 8 days of a show's citations to avoid repeating stories
+(8, not 7, so the same-weekday episode a week ago is always inside the window).
+Detects evolving stories (same topic, different URL) for contextual references.
+
+Every function takes the show's podcasts directory so each profile keeps its
+own citation history — nothing is shared between shows.
+"""
+
+import os
+import json
+import glob
+import time
+from datetime import datetime, timedelta
+from difflib import SequenceMatcher
+from pathlib import Path
+
+from config_loader import message_text
+import cohere_enrichment
+
+# Default kept for single-show callers/tests; multi-show callers pass podcasts_dir.
+DEFAULT_PODCASTS_DIR = Path(__file__).parent / "podcasts"
+
+
+def normalize_title(title):
+    """Normalize title for comparison by removing source tags and cleaning."""
+    import re
+    cleaned = re.sub(r'\[.*?\]\s*', '', title)
+    cleaned = cleaned.lower().strip()
+    return cleaned
+
+
+def title_similarity(title1, title2):
+    """Calculate similarity ratio between two titles (0.0 to 1.0)."""
+    norm1 = normalize_title(title1)
+    norm2 = normalize_title(title2)
+    return SequenceMatcher(None, norm1, norm2).ratio()
+
+
+def load_recent_citations(days=8, podcasts_dir=None):
+    """Load citations from the last N days of one show's episode history.
+
+    The cutoff is normalized to midnight so the episode from exactly N days
+    ago is included — citation filenames carry dates, not times, so a
+    time-of-day cutoff silently dropped the same-weekday episode a week ago.
+    """
+    podcasts_dir = Path(podcasts_dir) if podcasts_dir else DEFAULT_PODCASTS_DIR
+    cutoff_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=days)
+    citations_files = glob.glob(str(podcasts_dir / "citations_*.json"))
+
+    recent_citations = []
+
+    for filename in citations_files:
+        try:
+            # Extract date from filename: citations_2026-01-24.json (an optional
+            # suffix after the date, e.g. citations_2026-01-24_topic.json, is fine)
+            basename = os.path.basename(filename)
+            parts = basename.replace('citations_', '').replace('.json', '').split('_')
+            date_str = parts[0]
+            file_date = datetime.strptime(date_str, '%Y-%m-%d')
+
+            if file_date >= cutoff_date:
+                with open(filename, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    episode_date = data.get('episode', {}).get('date', '')
+                    if not episode_date:
+                        continue
+
+                    # Collect all articles from this episode
+                    for segment_name, segment_data in data.get('segments', {}).items():
+                        for article in segment_data.get('articles', []):
+                            recent_citations.append({
+                                'url': article['url'],
+                                'title': article['title'],
+                                'episode_date': episode_date,
+                                'segment': segment_name
+                            })
+        except Exception as e:
+            print(f"  ⚠️ Error loading {filename}: {e}")
+            continue
+
+    print(f"📚 Loaded {len(recent_citations)} articles from last {days} days")
+    return recent_citations
+
+
+def _find_evolving_stories(articles, recent_citations, similarity_threshold=0.70):
+    """Detect evolving stories using Cohere embeddings or string similarity fallback."""
+    cohere_results = cohere_enrichment.detect_evolving_stories(articles, recent_citations)
+    if cohere_results is not None:
+        return [r for r in cohere_results if r is not None]
+
+    # Original string-similarity path
+    evolving = []
+    for article in articles:
+        article_url = article.get('url', '')
+        article_title = article.get('title', '')
+        for past_article in recent_citations:
+            similarity = title_similarity(article_title, past_article['title'])
+            if similarity >= similarity_threshold and article_url != past_article['url']:
+                evolving.append({
+                    'article': article,
+                    'original_date': past_article['episode_date'],
+                    'original_title': past_article['title'],
+                    'similarity': similarity,
+                })
+                break
+    return evolving
+
+
+def deduplicate_articles(new_articles, similarity_threshold=0.70, podcasts_dir=None):
+    """
+    Deduplicate articles against one show's recent history.
+
+    Returns:
+        - filtered_articles: Articles not previously covered
+        - evolving_stories: Articles that are updates to previous coverage
+    """
+    recent_citations = load_recent_citations(podcasts_dir=podcasts_dir)
+
+    if not recent_citations:
+        print("  ℹ️ No recent citations found, no deduplication needed")
+        return new_articles, []
+
+    covered_urls = {c['url'] for c in recent_citations}
+
+    # Exact URL dedup — always fast, no API needed
+    filtered_articles = []
+    skipped_count = 0
+    for article in new_articles:
+        if article.get('url', '') in covered_urls:
+            skipped_count += 1
+        else:
+            filtered_articles.append(article)
+
+    # Evolving story detection (Cohere semantic or string-similarity fallback)
+    evolving_stories = _find_evolving_stories(filtered_articles, recent_citations, similarity_threshold)
+
+    print(f"  ✅ Filtered: {len(filtered_articles)} articles")
+    print(f"  🔄 Evolving stories: {len(evolving_stories)} updates to previous coverage")
+    print(f"  ⏭️  Skipped: {skipped_count} exact duplicates")
+
+    return filtered_articles, evolving_stories
+
+
+def format_evolving_story_context(evolving_stories):
+    """Format evolving stories for Claude prompt context."""
+    if not evolving_stories:
+        return ""
+
+    context_lines = ["\n**EVOLVING STORIES - Updates to Previous Coverage:**"]
+
+    for story in evolving_stories:
+        article = story['article']
+        context_lines.append(
+            f"- \"{article.get('title', '')}\" is an update to coverage from {story['original_date']}"
+        )
+
+    return "\n".join(context_lines)
+
+
+def cluster_and_rescore_corpus(articles, topic_label, client=None, model=None):
+    """
+    Identify topic clusters within the current article batch and penalize duplicates.
+
+    Tries Cohere embedding similarity first (when USE_COHERE=1), then falls back
+    to Claude Haiku if Cohere is disabled or unavailable.
+
+    Within each cluster, the highest-scored article is kept at full score; the
+    rest have their _boosted_score reduced to 30% of its original value and are
+    tagged _cluster_suppressed=True.
+
+    All clustered articles receive a _topic_cluster string label.
+
+    Falls back silently (returns articles unchanged) if both Cohere and Claude
+    are unavailable or return invalid data.
+
+    Args:
+        articles: list of article dicts (must have title, summary, _boosted_score or ai_score)
+        topic_label: the show's topic focus (used in the Claude prompt for context)
+        client: Anthropic client instance (or None to skip Claude fallback)
+        model: Claude model ID to use (defaults to claude-haiku-4-5-20251001)
+
+    Returns:
+        articles list with updated _boosted_score, _cluster_suppressed, _topic_cluster fields
+    """
+    if not articles:
+        return articles
+
+    # Try Cohere semantic clustering first (zero Claude tokens when it works)
+    cohere_result = cohere_enrichment.cluster_articles(articles)
+    if cohere_result is not None:
+        return cohere_result
+
+    # Fall back to Claude Haiku clustering
+    if not client:
+        return articles
+
+    if model is None:
+        model = "claude-haiku-4-5-20251001"
+
+    # Build compact article list for the prompt
+    article_list = []
+    for i, a in enumerate(articles):
+        article_list.append({
+            "index": i,
+            "title": a.get("title", ""),
+            "summary": a.get("summary", "")[:150],
+        })
+
+    prompt = (
+        f"You are helping curate a podcast about '{topic_label}'. "
+        "Below is a list of articles fetched today. Identify groups where "
+        "2 or more articles cover the *same underlying news story* from different "
+        "sources (e.g. multiple outlets reporting the same event, announcement, or development).\n\n"
+        "Article list (JSON):\n"
+        f"{json.dumps(article_list, ensure_ascii=False)}\n\n"
+        "Return ONLY valid JSON with no markdown fences:\n"
+        '{"clusters": [{"label": "short story label", "indices": [0, 3, 7]}, ...]}\n\n'
+        "Rules:\n"
+        "- Only include clusters with 2 or more articles.\n"
+        "- Each article index may appear in at most one cluster.\n"
+        "- If no duplicate stories exist, return {\"clusters\": []}.\n"
+        "- Labels should be concise (5 words or fewer)."
+    )
+
+    last_exc = None
+    for attempt in range(2):
+        try:
+            response = client.messages.create(
+                model=model,
+                max_tokens=600,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            raw = message_text(response).strip()
+            if not raw:
+                raise ValueError("empty response from API")
+            data = json.loads(raw)
+            clusters = data.get("clusters", [])
+            last_exc = None
+            break
+        except Exception as e:
+            last_exc = e
+            if attempt == 0:
+                time.sleep(2)
+    if last_exc is not None:
+        print(f"  ⚠️  cluster_and_rescore_corpus: Claude call failed ({last_exc}), skipping")
+        return articles
+
+    if not clusters:
+        print("  ✔️  No intra-batch duplicate clusters detected")
+        return articles
+
+    # Work on copies so callers get a fresh list
+    articles = [a.copy() for a in articles]
+
+    for cluster in clusters:
+        label = cluster.get("label", "")
+        indices = cluster.get("indices", [])
+        # Validate indices
+        valid = [i for i in indices if isinstance(i, int) and 0 <= i < len(articles)]
+        if len(valid) < 2:
+            continue
+
+        # Tag all cluster members
+        for i in valid:
+            articles[i]["_topic_cluster"] = label
+
+        # Canonical = article with highest _boosted_score (or ai_score as fallback)
+        canonical_idx = max(
+            valid,
+            key=lambda i: articles[i].get("_boosted_score", articles[i].get("ai_score", 0)),
+        )
+
+        # Penalize the non-canonical duplicates
+        suppressed = [i for i in valid if i != canonical_idx]
+        for i in suppressed:
+            original = articles[i].get("_boosted_score", articles[i].get("ai_score", 0))
+            articles[i]["_boosted_score"] = max(1, int(original * 0.3))
+            articles[i]["_cluster_suppressed"] = True
+
+        canonical_title = articles[canonical_idx].get("title", "")[:60]
+        print(
+            f"  🔗 Cluster \"{label}\": canonical=\"{canonical_title}\","
+            f" suppressed {len(suppressed)} duplicate(s)"
+        )
+
+    return articles
+
+
+if __name__ == "__main__":
+    import sys
+    from config_loader import load_podcast_profile
+
+    name = sys.argv[1] if len(sys.argv) > 1 else "sample"
+    show_dir = Path(__file__).parent / "shows" / name / "podcasts"
+    recent = load_recent_citations(podcasts_dir=show_dir)
+    print(f"\nFound {len(recent)} articles in recent history for '{name}'")
+    for article in recent[:5]:
+        print(f"  - [{article['episode_date']}] {article['title'][:80]}...")

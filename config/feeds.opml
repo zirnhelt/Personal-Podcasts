@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="2.0">
+  <head>
+    <title>Personal Podcast Creator — example feeds</title>
+  </head>
+  <body>
+    <outline text="Tech" title="Tech">
+      <outline type="rss" text="Hacker News Front Page" title="Hacker News Front Page"
+               xmlUrl="https://hnrss.org/frontpage" htmlUrl="https://news.ycombinator.com/"/>
+    </outline>
+    <outline text="Regional" title="Regional">
+      <outline type="rss" text="Example Local News" title="Example Local News"
+               xmlUrl="https://example.com/local/feed.xml" htmlUrl="https://example.com/local/"/>
+    </outline>
+  </body>
+</opml>

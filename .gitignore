@@ -1,0 +1,15 @@
+.env
+
+# Virtual environment
+venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Test files (stage with `git add -f tests/` when committing test changes)
+*test*
+!.github/**
+
+# Local TTS scratch
+shows/*/podcasts/.music_cache/
