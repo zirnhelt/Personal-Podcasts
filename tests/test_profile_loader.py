@@ -85,6 +85,15 @@ def test_unknown_profile_raises_with_available_list(tmp_path, monkeypatch):
         config_loader.load_podcast_profile("ghost")
 
 
+def test_owner_field_passes_through(tmp_path, monkeypatch):
+    """The web app stores show ownership as an 'owner' key inside the profile;
+    the loader must tolerate it and preserve it through the defaults merge."""
+    _write_profile(tmp_path, monkeypatch, "owned", {"title": "X", "owner": "alice"})
+    p = config_loader.load_podcast_profile("owned")
+    assert p["owner"] == "alice"
+    assert p["scope"] == config_loader.PROFILE_DEFAULTS["scope"]
+
+
 def test_list_profiles(tmp_path, monkeypatch):
     _write_profile(tmp_path, monkeypatch, "a", {"title": "A"})
     _write_profile(tmp_path, monkeypatch, "b", {"title": "B"})

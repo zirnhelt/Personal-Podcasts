@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Personal Podcasts</title>
+<style>
+  :root { --border: #d0d7de; --muted: #57606a; --accent: #0969da;
+          --warn-bg: #fff8c5; --warn-border: #d4a72c;
+          --error-bg: #ffebe9; --error-border: #cf222e;
+          --ok-bg: #dafbe1; --ok-border: #1a7f37; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+         margin: 0 auto; max-width: 880px; padding: 1rem; color: #1f2328; }
+  header { display: flex; align-items: baseline; gap: 1rem; border-bottom: 1px solid var(--border);
+           padding-bottom: .5rem; margin-bottom: 1rem; }
+  header h1 { font-size: 1.3rem; margin: 0; flex: 1; }
+  a { color: var(--accent); }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid var(--border); }
+  th { font-size: .8rem; color: var(--muted); text-transform: uppercase; }
+  button { font: inherit; padding: .3rem .8rem; border: 1px solid var(--border); border-radius: 6px;
+           background: #f6f8fa; cursor: pointer; }
+  button.primary { background: #1f883d; color: #fff; border-color: #1f883d; }
+  button.danger-btn { color: #cf222e; }
+  button:disabled { opacity: .5; cursor: default; }
+  fieldset { border: 1px solid var(--border); border-radius: 6px; margin: 0 0 1rem; padding: .8rem 1rem; }
+  legend { font-weight: 600; padding: 0 .3rem; }
+  fieldset.trace { border-color: var(--accent); }
+  label { display: block; font-size: .85rem; color: var(--muted); margin-top: .6rem; }
+  input[type=text], input[type=url], input[type=email], input[type=number], input[type=date],
+  input[type=password], select, textarea {
+    font: inherit; width: 100%; padding: .35rem .5rem; border: 1px solid var(--border);
+    border-radius: 6px; margin-top: .15rem; }
+  textarea { min-height: 4em; }
+  .row { display: flex; gap: 1rem; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 12rem; }
+  .check { display: flex; align-items: center; gap: .4rem; margin-top: .6rem; font-size: .95rem; color: inherit; }
+  .check input { width: auto; margin: 0; }
+  .hint { font-size: .8rem; color: var(--muted); margin: .2rem 0 0; }
+  .banner { padding: .6rem .8rem; border-radius: 6px; margin: .6rem 0; border: 1px solid; }
+  .banner.warn { background: var(--warn-bg); border-color: var(--warn-border); }
+  .banner.error { background: var(--error-bg); border-color: var(--error-border); }
+  .banner.ok { background: var(--ok-bg); border-color: var(--ok-border); }
+  .badge { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .8rem;
+           border: 1px solid var(--border); }
+  .badge.Exemplary { background: var(--ok-bg); border-color: var(--ok-border); }
+  .badge.Strong { background: #ddf4ff; border-color: var(--accent); }
+  .badge.Adequate { background: var(--warn-bg); border-color: var(--warn-border); }
+  .badge.Weak, .badge.DISQUALIFIED { background: var(--error-bg); border-color: var(--error-border); }
+  .danger { color: #cf222e; }
+  #trace-live { font-size: 1.05rem; margin-top: .8rem; }
+  .toolbar { display: flex; gap: .6rem; margin: 1rem 0; flex-wrap: wrap; align-items: center; }
+  #status:empty { display: none; }
+  code { background: #f6f8fa; padding: .1rem .3rem; border-radius: 4px; }
+  .auth-card { max-width: 26rem; margin: 2rem auto; border: 1px solid var(--border);
+               border-radius: 6px; padding: 1rem 1.4rem 1.4rem; }
+  .wizard-progress { display: flex; gap: .4rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .wizard-progress span { padding: .15rem .6rem; border-radius: 999px; font-size: .8rem;
+                          border: 1px solid var(--border); color: var(--muted); }
+  .wizard-progress span.current { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .wizard-progress span.done { background: var(--ok-bg); border-color: var(--ok-border); color: inherit; }
+  .episode { border: 1px solid var(--border); border-radius: 6px; padding: .8rem 1rem; margin-bottom: .8rem; }
+  .episode h3 { margin: 0 0 .3rem; font-size: 1rem; }
+  .episode audio { width: 100%; margin-top: .5rem; }
+  .rss-row { display: flex; gap: .6rem; align-items: center; }
+  .rss-row input { flex: 1; }
+  #review-summary dt { font-weight: 600; margin-top: .5rem; }
+  #review-summary dd { margin: 0 0 0 1rem; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Personal Podcasts</h1>
+  <span id="auth-state" class="hint"></span>
+  <button id="logout-btn" hidden>Sign out</button>
+</header>
+
+<div id="status"></div>
+
+<!-- ── Login / Join ───────────────────────────────────────────────────────── -->
+<section id="auth" hidden>
+  <div class="auth-card" id="login-card">
+    <h2>Sign in</h2>
+    <form id="login-form">
+      <label>Username <input type="text" id="login-username" autocomplete="username"></label>
+      <label>PIN / passphrase <input type="password" id="login-pin" autocomplete="current-password"></label>
+      <div class="toolbar"><button type="submit" class="primary">Sign in</button></div>
+    </form>
+    <p class="hint">Need an account? Ask for an invite link, or
+      <a href="#" id="show-join">enter an invite code</a>.</p>
+  </div>
+  <div class="auth-card" id="join-card" hidden>
+    <h2>Join with an invite</h2>
+    <form id="join-form">
+      <label>Invite code <input type="text" id="join-code" autocomplete="off"></label>
+      <label>Username (lowercase letters, digits, - or _)
+        <input type="text" id="join-username" autocomplete="username"></label>
+      <label>Display name <input type="text" id="join-display"></label>
+      <label>PIN / passphrase (6+ characters — a short phrase works well)
+        <input type="password" id="join-pin" autocomplete="new-password"></label>
+      <div class="toolbar">
+        <button type="submit" class="primary">Create account</button>
+        <button type="button" id="show-login">Back to sign in</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<!-- ── Dashboard ──────────────────────────────────────────────────────────── -->
+<section id="dashboard" hidden>
+  <div class="toolbar">
+    <button class="primary" id="new-show">New podcast</button>
+    <label class="check" style="margin:0"><input type="checkbox" id="force-gen"> Force regeneration</label>
+    <span class="hint">"Generate now" queues an episode; it appears here once published.</span>
+  </div>
+  <table>
+    <thead><tr id="show-head">
+      <th>Show</th><th>Schedule</th><th>TRACE</th><th>Last episode</th><th class="admin-col">Owner</th><th></th>
+    </tr></thead>
+    <tbody id="show-rows"></tbody>
+  </table>
+
+  <fieldset id="admin-panel" hidden>
+    <legend>Admin</legend>
+    <div class="toolbar">
+      <button id="new-invite">Create invite link</button>
+    </div>
+    <div id="invite-result"></div>
+    <h3>Open invites</h3>
+    <table><tbody id="invite-rows"></tbody></table>
+    <h3>Users</h3>
+    <table><tbody id="user-rows"></tbody></table>
+  </fieldset>
+</section>
+
+<!-- ── Editor / Wizard (one form; the wizard shows one fieldset at a time) ── -->
+<section id="editor" hidden>
+  <h2 id="editor-title"></h2>
+  <div class="wizard-progress" id="wizard-progress" hidden></div>
+  <!-- novalidate: the JS validator mirrors config_loader/trace.py exactly;
+       native validation would mask it with different wording. -->
+  <form id="profile-form" novalidate>
+
+    <fieldset data-step="Basics">
+      <legend>Identity</legend>
+      <div id="name-wrap">
+        <label>Show name (becomes the feed address — lowercase letters/digits/dashes/underscores)
+          <input type="text" id="f-name" autocomplete="off">
+        </label>
+        <p class="hint">Cannot be changed later.</p>
+      </div>
+      <div id="owner-wrap" hidden>
+        <label>Owner (admin only) <input type="text" id="f-owner"></label>
+      </div>
+      <div class="row">
+        <div><label>Title <input type="text" id="f-title"></label></div>
+        <div><label>Tagline <input type="text" id="f-tagline"></label></div>
+      </div>
+    </fieldset>
+
+    <fieldset data-step="Topic">
+      <legend>Topic &amp; sources</legend>
+      <label>Search keywords describing what the show covers (one per line)
+        <textarea id="f-keywords"></textarea></label>
+      <label>Extra RSS feed URLs to draw stories from (one per line, optional)
+        <textarea id="f-rss"></textarea></label>
+      <label>OPML file (path in repo — leave the default unless you know better)
+        <input type="text" id="f-opml"></label>
+      <label class="check"><input type="checkbox" id="f-brave"> Brave search</label>
+      <label class="check"><input type="checkbox" id="f-kagi"> Kagi search</label>
+    </fieldset>
+
+    <fieldset data-step="Format">
+      <legend>Format</legend>
+      <div class="row">
+        <div><label>Scope <select id="f-scope"></select></label></div>
+        <div><label>Region hint (for regional shows) <input type="text" id="f-region-hint"></label></div>
+      </div>
+      <div class="row">
+        <div><label>Cadence <select id="f-cadence"></select></label></div>
+        <div><label>Depth <select id="f-depth"></select></label></div>
+        <div><label>Length (minutes, 5–30) <input type="number" id="f-length" min="5" max="30" step="1"></label></div>
+      </div>
+      <div class="row">
+        <div><label>Schedule <select id="f-schedule"></select></label></div>
+        <div id="schedule-day-wrap"><label>Day <select id="f-schedule-day"></select></label></div>
+      </div>
+    </fieldset>
+
+    <fieldset data-step="Voice">
+      <legend>Voice &amp; publishing</legend>
+      <div class="row">
+        <div><label>Voice pack <input type="text" id="f-voices"></label></div>
+        <div><label>Author <input type="text" id="f-author"></label></div>
+      </div>
+      <div class="row">
+        <div><label>Language <input type="text" id="f-language"></label></div>
+        <div><label>Base URL (where episodes are published; auto-filled)
+          <input type="url" id="f-base-url"></label></div>
+      </div>
+      <label>Categories (one per line) <textarea id="f-categories"></textarea></label>
+      <label>Corrections contact email — <strong>TRACE accountability, required to publish</strong>
+        <input type="email" id="f-email"></label>
+      <label class="check"><input type="checkbox" id="f-psa"> Include community-spotlight PSA segment</label>
+    </fieldset>
+
+    <fieldset class="trace" data-step="TRACE">
+      <legend>TRACE self-assessment</legend>
+      <p class="hint">Required by the <a href="https://tracestandard.org/ns/trace/1.0" target="_blank" rel="noopener">TRACE standard</a>:
+        an honest self-assessment of how transparently and accountably this AI-generated show operates.
+        The pipeline's publish gate (<code>trace.assert_publishable</code>) independently enforces it on
+        every generation — this page only helps you author it.</p>
+      <div class="row">
+        <div><label>Producer URL <input type="url" id="f-t-producer-url"></label></div>
+        <div><label>Community served <input type="text" id="f-t-community"></label></div>
+      </div>
+      <label class="check"><input type="checkbox" id="f-t-ai-generated"> AI-generated
+        <span class="hint">(unchecking this makes the publish gate refuse the show — TRACE transparency)</span></label>
+      <div class="row">
+        <div><label>AI role <input type="text" id="f-t-ai-role" placeholder="primary"></label></div>
+        <div><label>Track <input type="text" id="f-t-track" placeholder="B"></label></div>
+      </div>
+      <label>AI tools (one per line) <textarea id="f-t-ai-tools"></textarea></label>
+      <label class="check danger"><input type="checkbox" id="f-t-disqualified"> Disqualified —
+        <strong>checked = this show will never generate or publish</strong></label>
+      <div class="row" id="score-inputs"></div>
+      <div class="row">
+        <div><label>Assessment date <input type="date" id="f-t-date"></label></div>
+        <div><label>Assessed by <input type="text" id="f-t-assessed-by"></label></div>
+      </div>
+      <div id="trace-live"></div>
+      <div id="publish-banner"></div>
+    </fieldset>
+
+    <fieldset data-step="Review" id="review-step" hidden>
+      <legend>Review</legend>
+      <dl id="review-summary"></dl>
+    </fieldset>
+
+    <div id="save-errors"></div>
+    <div class="toolbar" id="wizard-nav" hidden>
+      <button type="button" id="wiz-back">Back</button>
+      <button type="button" class="primary" id="wiz-next">Next</button>
+      <button type="submit" class="primary" id="wiz-create" hidden>Create podcast</button>
+      <button type="button" id="wiz-cancel">Cancel</button>
+    </div>
+    <div class="toolbar" id="editor-nav">
+      <button type="submit" class="primary" id="save-btn">Save</button>
+      <button type="button" id="cancel-btn">Cancel</button>
+    </div>
+  </form>
+</section>
+
+<!-- ── Episodes ───────────────────────────────────────────────────────────── -->
+<section id="episodes" hidden>
+  <h2 id="episodes-title"></h2>
+  <div class="rss-row">
+    <input type="text" id="rss-url" readonly>
+    <button id="rss-copy">Copy RSS URL</button>
+  </div>
+  <p class="hint">Paste this address into any podcast app to subscribe. New episodes appear
+    a few minutes after generation finishes publishing.</p>
+  <div id="episode-list"></div>
+  <div class="toolbar"><button id="episodes-back">Back</button></div>
+</section>
+
+<!--
+  Constants duplicated from Python, in one place. The page JS and
+  tests/test_admin_page.py both parse this blob; the Python modules
+  (config_loader.py, trace.py) remain the single authority — this is a
+  display/UX mirror only, verified by the parity test.
+-->
+<script type="application/json" id="py-parity">
+{
+  "PROFILE_DEFAULTS": {
+    "scope": "regional",
+    "cadence": "dialog",
+    "depth": "deep_dive",
+    "length_minutes": 15,
+    "schedule": "weekly",
+    "schedule_day": "sunday",
+    "voices": "cariboo_signals",
+    "psa": false
+  },
+  "PROFILE_ENUMS": {
+    "scope": ["global", "regional"],
+    "cadence": ["dialog", "news"],
+    "depth": ["deep_dive", "titles"],
+    "schedule": ["daily", "weekly"]
+  },
+  "WEEKDAYS": ["friday", "monday", "saturday", "sunday", "thursday", "tuesday", "wednesday"],
+  "LENGTH_RANGE": [5, 30],
+  "TRACE_CATEGORIES": {
+    "transparency": 4,
+    "sourceIntegrity": 3,
+    "displacement": 2,
+    "consentAttribution": 4,
+    "benefitFlow": 5,
+    "accountability": 2
+  },
+  "TRACE_TOTAL_MAX": 20,
+  "TRACE_REQUIRED_FIELDS": ["producer_url", "community", "ai_role", "ai_tools",
+                            "track", "assessment_date", "assessed_by", "scores"],
+  "VERDICT_THRESHOLDS": [[85, "Exemplary"], [70, "Strong"], [50, "Adequate"], [0, "Weak"]]
+}
+</script>
+
+<script>
+"use strict";
+
+const TOKEN_KEY = "pp-session";
+
+const P = JSON.parse(document.getElementById("py-parity").textContent);
+const WEEKDAY_ORDER = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+// Emit keys in sample.json's order so saves produce clean diffs. "owner" leads:
+// it's the web app's one addition to the profile schema.
+const KEY_ORDER = ["owner", "title", "tagline", "sources", "scope", "region_hint", "cadence", "depth",
+                   "length_minutes", "schedule", "schedule_day", "search", "voices", "psa",
+                   "base_url", "author", "language", "categories", "email", "trace"];
+const TRACE_KEY_ORDER = ["producer_url", "community", "ai_generated", "ai_role", "ai_tools",
+                         "track", "disqualified", "scores", "assessment_date", "assessed_by"];
+// Computed by trace.validate_trace — never authored here.
+const TRACE_COMPUTED = ["namespace", "version", "total_score", "total_max", "total_pct", "verdict"];
+const NAME_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/;
+
+const state = {
+  token: localStorage.getItem(TOKEN_KEY) || "",
+  user: null,       // {username, display_name, role}
+  profiles: {},     // name -> {data, last_episode}
+  editing: null,    // profile name being edited, or null when creating
+  creating: false,
+  wizard: false,    // wizard mode vs whole-form editor
+  wizardStep: 0,
+};
+
+const $ = (id) => document.getElementById(id);
+const val = (id) => $(id).value;
+const checked = (id) => $(id).checked;
+const lines = (id) => val(id).split("\n").map((s) => s.trim()).filter(Boolean);
+
+// ── API ───────────────────────────────────────────────────────────────────
+
+async function api(path, opts = {}) {
+  const res = await fetch("/api" + path, {
+    ...opts,
+    headers: {
+      ...(state.token ? { "Authorization": "Bearer " + state.token } : {}),
+      ...(opts.body ? { "Content-Type": "application/json" } : {}),
+    },
+  });
+  if (res.status === 401 && !path.startsWith("/login") && !path.startsWith("/join")) {
+    signOut();
+    throw new Error("Session expired — sign in again.");
+  }
+  const type = res.headers.get("Content-Type") || "";
+  const body = type.includes("json") ? await res.json() : await res.text();
+  if (!res.ok) {
+    const err = new Error(body.error || `${res.status}`);
+    err.status = res.status;
+    err.errors = body.errors;
+    throw err;
+  }
+  return body;
+}
+
+// ── TRACE math (mirror of trace.validate_trace totals; display only) ─────
+
+function traceTotals(scores) {
+  let total = 0;
+  for (const cat of Object.keys(P.TRACE_CATEGORIES)) total += Number(scores[cat] || 0);
+  const pct = Math.round(100 * total / P.TRACE_TOTAL_MAX);
+  const verdict = P.VERDICT_THRESHOLDS.find(([min]) => pct >= min)[1];
+  return { total, pct, verdict };
+}
+
+// Mirror of trace.assert_publishable — warnings only, never blocks a save.
+function publishProblems(profile) {
+  const problems = [];
+  const t = profile.trace || {};
+  if (t.disqualified) problems.push("the assessment is marked DISQUALIFIED");
+  if (t.ai_generated === false) problems.push("ai_generated is false for an AI-generated show (TRACE transparency)");
+  if (!profile.email && !profile.corrections_contact) {
+    problems.push("no corrections contact email (TRACE accountability)");
+  }
+  return problems;
+}
+
+// ── Save-blocking validation (mirror of config_loader.load_podcast_profile
+//    + trace.validate_trace; the Worker re-runs the same checks server-side) ─
+
+function validateProfile(profile, name, isCreate) {
+  const errors = [];
+  if (isCreate) {
+    if (!NAME_RE.test(name)) errors.push("Show name must be lowercase letters/digits/dashes/underscores.");
+    else if (name in state.profiles) errors.push(`A show named '${name}' already exists.`);
+  }
+  for (const [field, allowed] of Object.entries(P.PROFILE_ENUMS)) {
+    if (!allowed.includes(profile[field])) errors.push(`${field} must be one of ${allowed.join(", ")}.`);
+  }
+  const len = profile.length_minutes;
+  if (!Number.isInteger(len) || len < P.LENGTH_RANGE[0] || len > P.LENGTH_RANGE[1]) {
+    errors.push(`length_minutes=${len} out of range ${P.LENGTH_RANGE[0]}–${P.LENGTH_RANGE[1]}.`);
+  }
+  if (profile.schedule === "weekly" && !P.WEEKDAYS.includes(profile.schedule_day)) {
+    errors.push(`schedule_day '${profile.schedule_day}' must be a weekday name.`);
+  }
+  const t = profile.trace || {};
+  const missing = P.TRACE_REQUIRED_FIELDS.filter((f) => !(f in t) || t[f] === "" ||
+    (Array.isArray(t[f]) && !t[f].length));
+  if (missing.length) errors.push(`TRACE block missing required fields: ${missing.join(", ")}.`);
+  for (const [cat, max] of Object.entries(P.TRACE_CATEGORIES)) {
+    const score = (t.scores || {})[cat];
+    if (!Number.isInteger(score) || score < 0 || score > max) {
+      errors.push(`TRACE score '${cat}'=${score} out of range 0–${max}.`);
+    }
+  }
+  return errors;
+}
+
+// ── UI plumbing ───────────────────────────────────────────────────────────
+
+function showView(id) {
+  for (const view of ["auth", "dashboard", "editor", "episodes"]) $(view).hidden = view !== id;
+}
+
+function setStatus(kind, html) {
+  $("status").innerHTML = html ? `<div class="banner ${kind}">${html}</div>` : "";
+}
+
+function el(tag, text, attrs = {}) {
+  const node = document.createElement(tag);
+  if (text !== null && text !== undefined) node.textContent = text;
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  return node;
+}
+
+function fillSelect(id, options) {
+  $(id).replaceChildren(...options.map((o) => el("option", o, { value: o })));
+}
+
+// ── Auth ──────────────────────────────────────────────────────────────────
+
+function setSession(token, user) {
+  state.token = token;
+  state.user = user;
+  localStorage.setItem(TOKEN_KEY, token);
+  $("logout-btn").hidden = false;
+  $("auth-state").textContent = `${user.display_name} (${user.username})${user.role === "admin" ? " · admin" : ""}`;
+}
+
+function signOut() {
+  localStorage.removeItem(TOKEN_KEY);
+  state.token = "";
+  state.user = null;
+  $("logout-btn").hidden = true;
+  $("auth-state").textContent = "";
+  showView("auth");
+}
+
+async function login(event) {
+  event.preventDefault();
+  try {
+    const res = await api("/login", {
+      method: "POST",
+      body: JSON.stringify({ username: val("login-username").trim(), pin: val("login-pin") }),
+    });
+    setSession(res.token, res.user);
+    setStatus("", "");
+    await loadDashboard();
+  } catch (err) {
+    setStatus("error", `Sign-in failed: ${err.message}`);
+  }
+}
+
+async function join(event) {
+  event.preventDefault();
+  try {
+    const res = await api("/join", {
+      method: "POST",
+      body: JSON.stringify({
+        invite_code: val("join-code").trim(),
+        username: val("join-username").trim(),
+        display_name: val("join-display").trim(),
+        pin: val("join-pin"),
+      }),
+    });
+    setSession(res.token, res.user);
+    setStatus("ok", "Welcome! Create your first podcast with the button below.");
+    history.replaceState(null, "", location.pathname); // drop ?invite=… from the URL
+    await loadDashboard();
+  } catch (err) {
+    setStatus("error", `Could not join: ${err.message}`);
+  }
+}
+
+async function resumeSession() {
+  try {
+    const res = await api("/me");
+    setSession(state.token, res.user); // refresh display name/role
+    await loadDashboard();
+  } catch (err) {
+    // On 401, api() already signed out and showed the auth view.
+    if (state.token) setStatus("error", `Could not reach the server: ${err.message}`);
+    if (!state.user) showView("auth");
+  }
+}
+
+// ── Dashboard ─────────────────────────────────────────────────────────────
+
+async function loadDashboard() {
+  showView("dashboard");
+  const isAdmin = state.user.role === "admin";
+  for (const cell of document.querySelectorAll(".admin-col")) cell.hidden = !isAdmin;
+  $("admin-panel").hidden = !isAdmin;
+
+  const tbody = $("show-rows");
+  tbody.replaceChildren(el("tr", null).appendChild(el("td", "Loading…", { colspan: 6 })).parentNode);
+  let res;
+  try {
+    res = await api("/profiles");
+  } catch (err) {
+    setStatus("error", `Could not load shows: ${err.message}`);
+    return;
+  }
+  state.profiles = {};
+  const rows = res.profiles.map(({ name, data, last_episode }) => {
+    state.profiles[name] = { data, last_episode };
+    return renderRow(name, data, last_episode, isAdmin);
+  });
+  tbody.replaceChildren(...rows);
+  if (!rows.length) {
+    const tr = el("tr", null);
+    tr.append(el("td", "No podcasts yet — create one!", { colspan: 6, class: "hint" }));
+    tbody.append(tr);
+  }
+  if (isAdmin) loadAdminPanel().catch((err) => setStatus("error", err.message));
+}
+
+function renderRow(name, data, last, isAdmin) {
+  const tr = el("tr", null);
+
+  const showCell = el("td", null);
+  showCell.append(el("strong", data.title || name), el("br", null), el("span", name, { class: "hint" }));
+
+  const schedule = data.schedule === "daily"
+    ? "daily"
+    : `weekly · ${data.schedule_day || P.PROFILE_DEFAULTS.schedule_day}`;
+
+  const traceCell = el("td", null);
+  const t = data.trace || {};
+  if (t.disqualified) {
+    traceCell.append(el("span", "DISQUALIFIED", { class: "badge DISQUALIFIED" }));
+  } else if (t.scores) {
+    const { total, verdict } = traceTotals(t.scores);
+    traceCell.append(el("span", `${total}/${P.TRACE_TOTAL_MAX} ${verdict}`, { class: `badge ${verdict}` }));
+  } else {
+    traceCell.append(el("span", "missing", { class: "badge Weak" }));
+  }
+
+  const actions = el("td", null);
+  const buttons = [
+    ["Episodes", () => openEpisodes(name)],
+    ["Edit", () => openForm({ name })],
+    ["Generate now", (btn) => generateNow(name, btn)],
+    ["Copy", () => openForm({ copyFrom: structuredClone(data), wizard: true })],
+    ["Delete", (btn) => deleteShow(name, btn), "danger-btn"],
+  ];
+  for (const [label, handler, cls] of buttons) {
+    const btn = el("button", label, cls ? { class: cls } : {});
+    btn.addEventListener("click", () => handler(btn));
+    actions.append(btn, document.createTextNode(" "));
+  }
+
+  tr.append(showCell, el("td", schedule), traceCell, el("td", last || "—"));
+  const ownerCell = el("td", data.owner || "—", { class: "admin-col" });
+  ownerCell.hidden = !isAdmin;
+  tr.append(ownerCell, actions);
+  return tr;
+}
+
+async function generateNow(name, btn) {
+  btn.disabled = true;
+  try {
+    await api(`/profiles/${name}/generate`, {
+      method: "POST",
+      body: JSON.stringify({ force: checked("force-gen") }),
+    });
+    setStatus("ok", `Queued an episode of <strong>${state.profiles[name].data.title || name}</strong>. ` +
+      "Generation takes a few minutes; check the Episodes view later.");
+  } catch (err) {
+    setStatus("error", `Could not start generation: ${err.message}`);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function deleteShow(name, btn) {
+  if (!confirm(`Delete '${name}'? The show's settings are removed; already-published episodes stay online.`)) return;
+  btn.disabled = true;
+  try {
+    await api(`/profiles/${name}`, { method: "DELETE" });
+    setStatus("ok", `Deleted <strong>${name}</strong>.`);
+    await loadDashboard();
+  } catch (err) {
+    setStatus("error", `Delete failed: ${err.message}`);
+    btn.disabled = false;
+  }
+}
+
+// ── Admin panel ───────────────────────────────────────────────────────────
+
+async function loadAdminPanel() {
+  const [inv, usr] = await Promise.all([api("/invites"), api("/users")]);
+  $("invite-rows").replaceChildren(...inv.invites.map((invite) => {
+    const tr = el("tr", null);
+    const revoke = el("button", "Revoke");
+    revoke.addEventListener("click", async () => {
+      await api(`/invites/${invite.code}`, { method: "DELETE" });
+      loadAdminPanel();
+    });
+    const copy = el("button", "Copy link");
+    copy.addEventListener("click", () => navigator.clipboard.writeText(
+      `${location.origin}/?invite=${invite.code}`));
+    const actions = el("td", null);
+    actions.append(copy, document.createTextNode(" "), revoke);
+    tr.append(el("td", invite.code), el("td", `expires ${(invite.expires_at || "").slice(0, 10)}`), actions);
+    return tr;
+  }));
+  $("user-rows").replaceChildren(...usr.users.map((u) => {
+    const tr = el("tr", null);
+    const actions = el("td", null);
+    if (u.username !== state.user.username) {
+      const del = el("button", "Remove", { class: "danger-btn" });
+      del.addEventListener("click", async () => {
+        if (!confirm(`Remove user '${u.username}'? Their shows become admin-managed.`)) return;
+        await api(`/users/${u.username}`, { method: "DELETE" });
+        loadAdminPanel();
+      });
+      actions.append(del);
+    }
+    tr.append(el("td", `${u.display_name} (${u.username})`), el("td", u.role), actions);
+    return tr;
+  }));
+}
+
+async function createInvite() {
+  try {
+    const invite = await api("/invites", { method: "POST" });
+    $("invite-result").innerHTML =
+      `<div class="banner ok">Invite link (share it — one use, expires in 7 days):<br>` +
+      `<code>${invite.join_url}</code></div>`;
+    loadAdminPanel();
+  } catch (err) {
+    setStatus("error", `Could not create invite: ${err.message}`);
+  }
+}
+
+// ── Editor / Wizard ───────────────────────────────────────────────────────
+
+const wizardSteps = () => [...document.querySelectorAll("#profile-form fieldset[data-step]")];
+
+function newShowTemplate() {
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    title: "", tagline: "",
+    sources: { opml: "config/feeds.opml", rss: [], keywords: [] },
+    ...P.PROFILE_DEFAULTS,
+    region_hint: "",
+    search: { brave: true, kagi: true },
+    base_url: "", author: "", language: "en-us", categories: [], email: "",
+    trace: {
+      producer_url: "",
+      community: "",
+      ai_generated: true,
+      ai_role: "primary",
+      ai_tools: ["Claude", "OpenAI TTS"],
+      track: "B",
+      disqualified: false,
+      // All zeros on purpose: a new show gets a real self-assessment,
+      // not an inherited one.
+      scores: Object.fromEntries(Object.keys(P.TRACE_CATEGORIES).map((c) => [c, 0])),
+      assessment_date: today,
+      assessed_by: "self",
+    },
+  };
+}
+
+function openForm({ name, copyFrom, wizard } = {}) {
+  state.editing = name || null;
+  state.creating = !name;
+  state.wizard = !!wizard;
+  state.wizardStep = 0;
+  let data;
+  if (name) {
+    data = state.profiles[name].data;
+  } else if (copyFrom) {
+    data = copyFrom;
+    delete data.owner; // the server assigns ownership of the copy
+    // A copied show must not inherit the source's assessment.
+    data.trace = { ...data.trace,
+      scores: Object.fromEntries(Object.keys(P.TRACE_CATEGORIES).map((c) => [c, 0])),
+      assessment_date: new Date().toISOString().slice(0, 10),
+    };
+    data.base_url = "";
+  } else {
+    data = newShowTemplate();
+  }
+
+  $("editor-title").textContent = name ? `Edit: ${data.title || name}` : "New podcast";
+  $("name-wrap").hidden = !!name;
+  $("f-name").value = "";
+  $("owner-wrap").hidden = state.user.role !== "admin";
+  $("f-owner").value = data.owner || "";
+
+  $("f-title").value = data.title || "";
+  $("f-tagline").value = data.tagline || "";
+  const src = data.sources || {};
+  $("f-opml").value = src.opml || "";
+  $("f-rss").value = (src.rss || []).join("\n");
+  $("f-keywords").value = (src.keywords || []).join("\n");
+  const search = data.search || {};
+  $("f-brave").checked = !!search.brave;
+  $("f-kagi").checked = !!search.kagi;
+  $("f-scope").value = data.scope;
+  $("f-region-hint").value = data.region_hint || "";
+  $("f-cadence").value = data.cadence;
+  $("f-depth").value = data.depth;
+  $("f-length").value = data.length_minutes;
+  $("f-schedule").value = data.schedule;
+  $("f-schedule-day").value = data.schedule_day || P.PROFILE_DEFAULTS.schedule_day;
+  $("f-base-url").value = data.base_url || "";
+  $("f-author").value = data.author || state.user.display_name;
+  $("f-language").value = data.language || "";
+  $("f-categories").value = (data.categories || []).join("\n");
+  $("f-email").value = data.email || "";
+  $("f-voices").value = data.voices || "";
+  $("f-psa").checked = !!data.psa;
+
+  const t = data.trace || {};
+  $("f-t-producer-url").value = t.producer_url || "";
+  $("f-t-community").value = t.community || "";
+  $("f-t-ai-generated").checked = t.ai_generated !== false;
+  $("f-t-ai-role").value = t.ai_role || "";
+  $("f-t-track").value = t.track || "";
+  $("f-t-ai-tools").value = (t.ai_tools || []).join("\n");
+  $("f-t-disqualified").checked = !!t.disqualified;
+  for (const cat of Object.keys(P.TRACE_CATEGORIES)) {
+    $(`f-t-score-${cat}`).value = (t.scores || {})[cat] ?? 0;
+  }
+  $("f-t-date").value = t.assessment_date || "";
+  $("f-t-assessed-by").value = t.assessed_by || "";
+
+  $("save-errors").innerHTML = "";
+  $("wizard-nav").hidden = !state.wizard;
+  $("editor-nav").hidden = state.wizard;
+  $("wizard-progress").hidden = !state.wizard;
+  updateScheduleDay();
+  updateTracePanel();
+  if (state.wizard) renderWizardStep();
+  else {
+    for (const fs of wizardSteps()) fs.hidden = fs.id === "review-step";
+  }
+  showView("editor");
+}
+
+function renderWizardStep() {
+  const steps = wizardSteps();
+  steps.forEach((fs, i) => { fs.hidden = i !== state.wizardStep; });
+  $("wizard-progress").replaceChildren(...steps.map((fs, i) =>
+    el("span", `${i + 1}. ${fs.dataset.step}`,
+       { class: i === state.wizardStep ? "current" : i < state.wizardStep ? "done" : "" })));
+  const last = state.wizardStep === steps.length - 1;
+  $("wiz-back").disabled = state.wizardStep === 0;
+  $("wiz-next").hidden = last;
+  $("wiz-create").hidden = !last;
+  if (last) renderReview();
+  $("save-errors").innerHTML = "";
+}
+
+// Per-step blocking checks; full validation runs at Review and on the server.
+function wizardStepErrors(stepName) {
+  const errors = [];
+  if (stepName === "Basics") {
+    const name = val("f-name").trim();
+    if (!NAME_RE.test(name)) errors.push("Show name must be lowercase letters/digits/dashes/underscores.");
+    else if (name in state.profiles) errors.push(`A show named '${name}' already exists.`);
+    if (!val("f-title").trim()) errors.push("Give the show a title.");
+  }
+  if (stepName === "Topic" && !lines("f-keywords").length && !lines("f-rss").length) {
+    errors.push("Add at least one keyword or RSS feed so the show has sources.");
+  }
+  if (stepName === "Format") {
+    const len = parseInt(val("f-length"), 10);
+    if (!Number.isInteger(len) || len < P.LENGTH_RANGE[0] || len > P.LENGTH_RANGE[1]) {
+      errors.push(`Length must be ${P.LENGTH_RANGE[0]}–${P.LENGTH_RANGE[1]} minutes.`);
+    }
+  }
+  if (stepName === "TRACE") {
+    const draft = formToProfile({});
+    errors.push(...validateProfile(draft, null, false)
+      .filter((e) => e.startsWith("TRACE")));
+  }
+  return errors;
+}
+
+function wizardNext() {
+  const steps = wizardSteps();
+  const errors = wizardStepErrors(steps[state.wizardStep].dataset.step);
+  if (errors.length) {
+    $("save-errors").innerHTML =
+      `<div class="banner error"><ul>${errors.map((e) => `<li>${e}</li>`).join("")}</ul></div>`;
+    return;
+  }
+  state.wizardStep++;
+  renderWizardStep();
+}
+
+function renderReview() {
+  const name = val("f-name").trim();
+  const profile = formToProfile({});
+  const { total, verdict } = traceTotals(profile.trace.scores);
+  const entries = [
+    ["Show", `${profile.title} (${name})`],
+    ["Tagline", profile.tagline || "—"],
+    ["Sources", `${(profile.sources.keywords || []).length} keywords, ${(profile.sources.rss || []).length} extra feeds`],
+    ["Format", `${profile.scope} · ${profile.cadence} · ${profile.depth} · ${profile.length_minutes} min`],
+    ["Schedule", profile.schedule === "daily" ? "daily" : `weekly on ${profile.schedule_day}`],
+    ["Corrections contact", profile.email || "— (publish gate will refuse until set)"],
+    ["TRACE", `${total}/${P.TRACE_TOTAL_MAX} · ${verdict}`],
+  ];
+  $("review-summary").replaceChildren(...entries.flatMap(([k, v]) => [el("dt", k), el("dd", v)]));
+  const problems = publishProblems(profile);
+  $("save-errors").innerHTML = problems.length
+    ? `<div class="banner warn"><strong>You can create this show, but it won't publish yet:</strong> ` +
+      `${problems.join("; ")}.</div>`
+    : "";
+}
+
+function updateScheduleDay() {
+  $("schedule-day-wrap").hidden = val("f-schedule") !== "weekly";
+}
+
+function formToProfile(original) {
+  const p = { ...original };  // unknown fields (e.g. psa_config) survive edits
+  p.title = val("f-title").trim();
+  p.tagline = val("f-tagline").trim();
+  p.sources = { ...(original.sources || {}),
+                opml: val("f-opml").trim(), rss: lines("f-rss"), keywords: lines("f-keywords") };
+  p.scope = val("f-scope");
+  p.region_hint = val("f-region-hint").trim();
+  p.cadence = val("f-cadence");
+  p.depth = val("f-depth");
+  p.length_minutes = parseInt(val("f-length"), 10);
+  p.schedule = val("f-schedule");
+  p.schedule_day = val("f-schedule-day");
+  p.search = { ...(original.search || {}), brave: checked("f-brave"), kagi: checked("f-kagi") };
+  p.voices = val("f-voices").trim();
+  p.psa = checked("f-psa");
+  p.base_url = val("f-base-url").trim();
+  p.author = val("f-author").trim();
+  p.language = val("f-language").trim();
+  p.categories = lines("f-categories");
+  p.email = val("f-email").trim();
+  if (state.user.role === "admin" && val("f-owner").trim()) {
+    p.owner = val("f-owner").trim();   // server ignores this for non-admins
+  }
+
+  const t = { ...(original.trace || {}) };
+  for (const key of TRACE_COMPUTED) delete t[key];
+  t.producer_url = val("f-t-producer-url").trim();
+  t.community = val("f-t-community").trim();
+  t.ai_generated = checked("f-t-ai-generated");
+  t.ai_role = val("f-t-ai-role").trim();
+  t.ai_tools = lines("f-t-ai-tools");
+  t.track = val("f-t-track").trim();
+  t.disqualified = checked("f-t-disqualified");
+  t.scores = Object.fromEntries(Object.keys(P.TRACE_CATEGORIES)
+    .map((cat) => [cat, parseInt(val(`f-t-score-${cat}`), 10)]));
+  t.assessment_date = val("f-t-date");
+  t.assessed_by = val("f-t-assessed-by").trim();
+  p.trace = ordered(t, TRACE_KEY_ORDER);
+
+  return ordered(p, KEY_ORDER);
+}
+
+function ordered(obj, keyOrder) {
+  const out = {};
+  for (const key of keyOrder) if (key in obj) out[key] = obj[key];
+  for (const key of Object.keys(obj)) if (!(key in out) && key !== "name") out[key] = obj[key];
+  return out;
+}
+
+function updateTracePanel() {
+  const scores = {};
+  for (const cat of Object.keys(P.TRACE_CATEGORIES)) {
+    scores[cat] = parseInt(val(`f-t-score-${cat}`), 10) || 0;
+  }
+  const { total, pct, verdict } = traceTotals(scores);
+  $("trace-live").innerHTML =
+    `Self-assessed score: <strong>${total} / ${P.TRACE_TOTAL_MAX}</strong> · ${pct}% · ` +
+    `<span class="badge ${verdict}">${verdict}</span>`;
+
+  const problems = publishProblems({
+    email: val("f-email").trim(),
+    trace: { disqualified: checked("f-t-disqualified"), ai_generated: checked("f-t-ai-generated") },
+  });
+  $("publish-banner").innerHTML = problems.length
+    ? `<div class="banner warn"><strong>Valid settings, but the publish gate will refuse them:</strong> ` +
+      `${problems.join("; ")}. You can still save a draft — generation is blocked until it's fixed.</div>`
+    : "";
+}
+
+async function saveProfile(event) {
+  event.preventDefault();
+  const name = state.creating ? val("f-name").trim() : state.editing;
+  const original = state.creating ? {} : state.profiles[state.editing].data;
+  const profile = formToProfile(original);
+  // Empty base_url / producer_url are fine: the Worker fills in the public
+  // publishing URLs (it knows PAGES_ROOT; this page does not).
+
+  const errors = validateProfile(profile, name, state.creating);
+  if (errors.length) {
+    $("save-errors").innerHTML =
+      `<div class="banner error"><strong>Not saved:</strong><ul>` +
+      errors.map((e) => `<li>${e}</li>`).join("") + `</ul></div>`;
+    return;
+  }
+  $("save-errors").innerHTML = "";
+
+  const btn = state.wizard ? $("wiz-create") : $("save-btn");
+  btn.disabled = true;
+  try {
+    await api(`/profiles/${name}`, { method: "PUT", body: JSON.stringify(profile) });
+    setStatus("ok", `Saved <strong>${profile.title || name}</strong>.`);
+    await loadDashboard();
+  } catch (err) {
+    const detail = err.errors ? `<ul>${err.errors.map((e) => `<li>${e}</li>`).join("")}</ul>` : "";
+    setStatus("error", `Save failed: ${err.message}${detail}`);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Episodes ──────────────────────────────────────────────────────────────
+
+async function openEpisodes(name) {
+  const { data } = state.profiles[name];
+  $("episodes-title").textContent = data.title || name;
+  const base = (data.base_url || "").replace(/\/?$/, "/");
+  $("rss-url").value = data.base_url ? base + "feed.xml" : "(no base_url set)";
+  $("episode-list").innerHTML = `<p class="hint">Loading episodes…</p>`;
+  showView("episodes");
+
+  let xml;
+  try {
+    xml = await api(`/feed/${name}`);
+  } catch (err) {
+    $("episode-list").innerHTML =
+      `<div class="banner warn">${err.message === "No published feed yet — generate an episode first."
+        ? "No episodes published yet. Use “Generate now” on the dashboard, then check back in a few minutes."
+        : `Could not load the feed: ${err.message}`}</div>`;
+    return;
+  }
+  const doc = new DOMParser().parseFromString(xml, "application/xml");
+  const items = [...doc.querySelectorAll("item")];
+  if (!items.length) {
+    $("episode-list").innerHTML = `<div class="banner warn">The feed exists but has no episodes yet.</div>`;
+    return;
+  }
+  $("episode-list").replaceChildren(...items.map((item) => {
+    const get = (tag) => item.getElementsByTagName(tag)[0]?.textContent || "";
+    const audioUrl = item.getElementsByTagName("enclosure")[0]?.getAttribute("url") || "";
+    const card = el("div", null, { class: "episode" });
+    card.append(el("h3", get("title")));
+    if (get("pubDate")) card.append(el("p", new Date(get("pubDate")).toDateString(), { class: "hint" }));
+    if (audioUrl) {
+      const audio = el("audio", null, { controls: "", preload: "none", src: audioUrl });
+      card.append(audio);
+      // The generator's fixed naming scheme: audio → transcript/chapters.
+      const links = el("p", null, { class: "hint" });
+      const transcript = audioUrl.replace("podcast_audio_", "podcast_transcript_").replace(".mp3", ".html");
+      links.append(el("a", "Transcript", { href: transcript, target: "_blank", rel: "noopener" }));
+      card.append(links);
+    }
+    return card;
+  }));
+}
+
+// ── Wiring ────────────────────────────────────────────────────────────────
+
+function init() {
+  fillSelect("f-scope", P.PROFILE_ENUMS.scope);
+  fillSelect("f-cadence", P.PROFILE_ENUMS.cadence);
+  fillSelect("f-depth", P.PROFILE_ENUMS.depth);
+  fillSelect("f-schedule", P.PROFILE_ENUMS.schedule);
+  fillSelect("f-schedule-day", WEEKDAY_ORDER);
+
+  const scoreWrap = $("score-inputs");
+  for (const [cat, max] of Object.entries(P.TRACE_CATEGORIES)) {
+    const wrap = el("div", null);
+    const label = el("label", `${cat} (0–${max})`);
+    const input = el("input", null,
+      { type: "number", id: `f-t-score-${cat}`, min: 0, max: max, step: 1, value: 0 });
+    label.append(input);
+    wrap.append(label);
+    scoreWrap.append(wrap);
+  }
+
+  $("login-form").addEventListener("submit", login);
+  $("join-form").addEventListener("submit", join);
+  $("show-join").addEventListener("click", (e) => {
+    e.preventDefault();
+    $("login-card").hidden = true;
+    $("join-card").hidden = false;
+  });
+  $("show-login").addEventListener("click", () => {
+    $("join-card").hidden = true;
+    $("login-card").hidden = false;
+  });
+  $("logout-btn").addEventListener("click", signOut);
+
+  $("new-show").addEventListener("click", () => openForm({ wizard: true }));
+  $("new-invite").addEventListener("click", createInvite);
+
+  $("f-schedule").addEventListener("change", updateScheduleDay);
+  for (const id of ["f-email", "f-t-disqualified", "f-t-ai-generated"]) {
+    $(id).addEventListener("input", updateTracePanel);
+  }
+  $("score-inputs").addEventListener("input", updateTracePanel);
+  $("profile-form").addEventListener("submit", saveProfile);
+  $("cancel-btn").addEventListener("click", () => showView("dashboard"));
+  $("wiz-cancel").addEventListener("click", () => showView("dashboard"));
+  $("wiz-back").addEventListener("click", () => { state.wizardStep--; renderWizardStep(); });
+  $("wiz-next").addEventListener("click", wizardNext);
+  $("episodes-back").addEventListener("click", () => showView("dashboard"));
+  $("rss-copy").addEventListener("click", () => navigator.clipboard.writeText(val("rss-url")));
+
+  // An invite link opens straight onto the join card with the code filled in.
+  const invite = new URLSearchParams(location.search).get("invite");
+  if (invite) {
+    $("join-code").value = invite;
+    $("login-card").hidden = true;
+    $("join-card").hidden = false;
+  }
+
+  if (state.token) resumeSession();
+  else showView("auth");
+}
+
+init();
+</script>
+</body>
+</html>
