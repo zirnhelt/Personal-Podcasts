@@ -1,0 +1,33 @@
+# Cloudflare Worker for the multi-user Personal Podcasts web app.
+#
+# One Worker serves both the static SPA (public/) and the JSON API (/api/*).
+# Deploy:
+#   wrangler kv namespace create PP_KV       # paste the id below
+#   wrangler secret put GITHUB_TOKEN         # fine-grained PAT: this repo only,
+#                                            #   Contents RW + Actions RW
+#   wrangler secret put SESSION_SECRET       # e.g. openssl rand -base64 32
+#   wrangler deploy
+# Bootstrap the first (admin) account:
+#   wrangler kv key put --binding=PP_KV "invite:<random-code>" \
+#     '{"role":"admin","created_by":"bootstrap","created_at":"<iso-date>","expires_at":"<iso-date+7d>"}'
+# then open the app with ?invite=<random-code> and join.
+
+name = "personal-podcasts"
+main = "worker.js"
+compatibility_date = "2026-07-01"
+
+[assets]
+directory = "public"
+binding = "ASSETS"
+run_worker_first = ["/api/*"]
+
+[[kv_namespaces]]
+binding = "PP_KV"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"   # from: wrangler kv namespace create PP_KV
+
+[vars]
+GH_OWNER = "zirnhelt"
+GH_REPO = "Personal-Podcasts"
+GH_BRANCH = "main"
+WORKFLOW_FILE = "generate.yml"
+PAGES_ROOT = "https://zirnhelt.github.io/Personal-Podcasts/"

@@ -78,6 +78,51 @@ GitHub Pages can serve them.
 2. Enable GitHub Pages (Settings → Pages → deploy from branch, `/ (root)`).
 3. Set each profile's `base_url` to your Pages URL for that show.
 
+## Web app (multi-user)
+
+`webapp/` is a Cloudflare Worker that serves a multi-user web UI: invited
+users (no GitHub account needed) sign in with a username + PIN, create and
+edit their own shows through a guided wizard (including the required TRACE
+self-assessment), trigger generation, and listen to published episodes.
+
+- The Worker holds the only GitHub token; browsers never see it. Profiles
+  stay in `config/profiles/` with ownership as an `owner` field; users,
+  invites, and rate limits live in Workers KV; sessions are stateless HMAC
+  tokens (only the session token is kept in the browser).
+- Every profile write is validated against a mirror of
+  `config_loader`/`trace.py` (drift-guarded by `tests/test_admin_page.py`),
+  and the pipeline's TRACE publish gate is untouched — the web app can save
+  drafts, but nothing publishes without passing `trace.assert_publishable`.
+- Non-admin users are limited to 4 manual generations per day (API cost
+  discipline).
+
+**Deploy** (from `webapp/`):
+
+```bash
+wrangler kv namespace create PP_KV        # paste the id into wrangler.toml
+wrangler secret put GITHUB_TOKEN          # fine-grained PAT: this repo only,
+                                          #   Contents RW + Actions RW
+wrangler secret put SESSION_SECRET        # openssl rand -base64 32
+wrangler deploy
+```
+
+**Bootstrap the admin account** — seed one admin invite by hand, then join
+through the normal flow (API-created invites are always plain users):
+
+```bash
+wrangler kv key put --binding=PP_KV "invite:$(openssl rand -hex 8)" \
+  '{"role":"admin","created_by":"bootstrap","created_at":"2026-01-01T00:00:00Z","expires_at":"2026-01-08T00:00:00Z"}'
+# open https://<worker-url>/?invite=<that-code> and create your account
+```
+
+Fine-grained PATs expire (max ~1 year): renew with another
+`wrangler secret put GITHUB_TOKEN`. Deleting a show removes its profile but
+leaves already-published `shows/<name>/` artifacts; clean those up in git if
+needed. `admin/index.html` remains as a break-glass admin page (PAT in
+browser) until the web app is verified end-to-end.
+
+Worker unit tests: `node --test webapp/worker.test.mjs` (Node 20+, no deps).
+
 ## Development
 
 ```bash
