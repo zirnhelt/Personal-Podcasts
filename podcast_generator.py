@@ -128,10 +128,29 @@ def api_retry(func, max_retries=3, base_delay=2):
                 raise
 
 
+# Per-episode spend accumulator: service -> {"calls": n, <unit>: total, ...}.
+# Cleared at the start of each generate_episode run.
+_API_TOTALS: dict[str, dict[str, int]] = {}
+
+
 def _log_api_call(service: str, unit: str, count) -> None:
     """Log an API call for cost metering. Every call that spends money logs."""
     ts = datetime.now(timezone.utc).isoformat(timespec="seconds")
     print(f"  [api] {ts} service={service} {unit}={count}")
+    totals = _API_TOTALS.setdefault(service, {"calls": 0})
+    totals["calls"] += 1
+    if isinstance(count, (int, float)):
+        totals[unit] = totals.get(unit, 0) + int(count)
+
+
+def _print_api_totals() -> None:
+    """Print the per-episode API spend summary accumulated by _log_api_call."""
+    if not _API_TOTALS:
+        return
+    print("  [api totals]")
+    for service in sorted(_API_TOTALS):
+        parts = " ".join(f"{u}={v}" for u, v in _API_TOTALS[service].items())
+        print(f"    {service} {parts}")
 
 
 def get_anthropic_client():
@@ -1315,6 +1334,16 @@ track {saxutils.escape(t['track'])}, assessed {saxutils.escape(t['assessment_dat
 def generate_episode(profile_name, force=False, dry_run=False):
     """Run the full pipeline for one profile. Returns True when an episode
     exists at the end of the run (fresh or already present)."""
+    _API_TOTALS.clear()
+    try:
+        return _generate_episode(profile_name, force=force, dry_run=dry_run)
+    finally:
+        # finally so the spend summary survives every exit path, including
+        # the sys.exit on OpenAI quota exhaustion
+        _print_api_totals()
+
+
+def _generate_episode(profile_name, force=False, dry_run=False):
     profile = load_podcast_profile(profile_name)
     print(f"🎙️ {profile['title']} — {profile.get('tagline', '')}")
     print("=" * 60)

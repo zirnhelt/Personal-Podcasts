@@ -32,3 +32,15 @@ def _install_stubs():
 
 # Run at import time so stubs are ready before test modules are collected
 _install_stubs()
+
+
+import pytest  # noqa: E402
+import search  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _reset_search_state():
+    """Per-run search cache/throttle state must not leak between tests."""
+    search._SEARCH_CACHE.clear()
+    search._BRAVE_STATE.update(last_call=0.0, calls=0)
+    yield

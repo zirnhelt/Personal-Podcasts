@@ -293,3 +293,36 @@ class TestScriptGeneration:
         articles = []
         original = "**RILEY:** Hi.\n**CASEY:** Hello."
         assert pg.polish_script(original, profile, articles, client=client) == original
+
+
+class TestApiTotals:
+    def test_log_api_call_accumulates_numeric_counts(self, capsys):
+        pg._API_TOTALS.clear()
+        pg._log_api_call("claude-script", "input_tokens", 100)
+        pg._log_api_call("claude-script", "input_tokens", 50)
+        pg._log_api_call("claude-polish", "input_tokens", "?")  # unknown usage
+        assert pg._API_TOTALS["claude-script"] == {"calls": 2, "input_tokens": 150}
+        assert pg._API_TOTALS["claude-polish"] == {"calls": 1}
+        pg._print_api_totals()
+        out = capsys.readouterr().out
+        assert "[api totals]" in out
+        assert "claude-script calls=2 input_tokens=150" in out
+
+    def test_print_api_totals_silent_when_empty(self, capsys):
+        pg._API_TOTALS.clear()
+        pg._print_api_totals()
+        assert "[api totals]" not in capsys.readouterr().out
+
+    def test_generate_episode_resets_totals_and_prints_summary(
+            self, monkeypatch, capsys):
+        pg._API_TOTALS["stale-service"] = {"calls": 9}
+
+        def fake_run(profile_name, force=False, dry_run=False):
+            pg._log_api_call("claude-haiku", "input_tokens", 42)
+            return True
+
+        monkeypatch.setattr(pg, "_generate_episode", fake_run)
+        assert pg.generate_episode("sample", dry_run=True) is True
+        assert "stale-service" not in pg._API_TOTALS
+        out = capsys.readouterr().out
+        assert "claude-haiku calls=1 input_tokens=42" in out
