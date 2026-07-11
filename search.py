@@ -14,11 +14,41 @@ disables it, so a profile can run on either engine alone.
 """
 
 import os
+import time
 import requests
+
+# Per-run controls (ported from the upstream curated-podcast-generator perf
+# work): a query cache so repeated searches in one run cost nothing, and
+# pacing/capping for Brave, whose free tier allows 1 request/second and a
+# monthly quota shared across every show in the generation matrix.
+_SEARCH_CACHE: dict[tuple[str, int], list] = {}
+_BRAVE_STATE = {"last_call": 0.0, "calls": 0}
+
+
+def _brave_allowed() -> bool:
+    """Per-run Brave call cap via BRAVE_SEARCH_CALL_LIMIT (0 = unlimited)."""
+    limit = int(os.getenv("BRAVE_SEARCH_CALL_LIMIT", "0"))
+    if limit and _BRAVE_STATE["calls"] >= limit:
+        print(f"  Brave call limit ({limit}) reached — skipping Brave for this run")
+        return False
+    return True
+
+
+def _brave_pace() -> None:
+    """Sleep so consecutive Brave calls honour BRAVE_SEARCH_COOLDOWN_SECS."""
+    cooldown = float(os.getenv("BRAVE_SEARCH_COOLDOWN_SECS", "1.0"))
+    wait = _BRAVE_STATE["last_call"] + cooldown - time.monotonic()
+    if wait > 0:
+        time.sleep(wait)
 
 
 def brave_search(query, api_key, count=5):
     """Call Brave Search. Returns [{title,url,description}], [] on failure."""
+    if not _brave_allowed():
+        return []
+    _brave_pace()
+    _BRAVE_STATE["last_call"] = time.monotonic()
+    _BRAVE_STATE["calls"] += 1
     try:
         resp = requests.get(
             "https://api.search.brave.com/res/v1/web/search",
@@ -84,7 +114,14 @@ def _dedup_by_url(results):
 
 
 def search_all(query, profile, count=5):
-    """Run every enabled+keyed provider for one query; merge and dedup by URL."""
+    """Run every enabled+keyed provider for one query; merge and dedup by URL.
+
+    Results are cached per (query, count) for the life of the run — each run
+    serves one profile, so the profile isn't part of the key.
+    """
+    key = (query, count)
+    if key in _SEARCH_CACHE:
+        return list(_SEARCH_CACHE[key])
     engines = profile.get("search", {"brave": True, "kagi": True})
     results = []
     brave_key = os.getenv("BRAVE_SEARCH_API_KEY")
@@ -93,7 +130,8 @@ def search_all(query, profile, count=5):
         results.extend(brave_search(query, brave_key, count))
     if engines.get("kagi") and kagi_key:
         results.extend(kagi_search(query, kagi_key, count))
-    return _dedup_by_url(results)
+    _SEARCH_CACHE[key] = _dedup_by_url(results)
+    return list(_SEARCH_CACHE[key])
 
 
 def gather_keyword_articles(profile, count=5):
