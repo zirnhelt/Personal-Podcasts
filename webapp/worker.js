@@ -37,6 +37,7 @@
   },
   "WEEKDAYS": ["friday", "monday", "saturday", "sunday", "thursday", "tuesday", "wednesday"],
   "LENGTH_RANGE": [5, 30],
+  "KITE_MAX_CATEGORIES": 8,
   "TRACE_CATEGORIES": {
     "transparency": 4,
     "sourceIntegrity": 3,
@@ -157,6 +158,21 @@ export function validUsername(username) {
   return USERNAME_RE.test(username || "");
 }
 
+// Mirror of config_loader._validate_kite_sources (structural checks; the
+// known-name check stays in Python, the picker only offers Kite's own names).
+export function kiteSourceErrors(kite) {
+  if (kite === undefined || kite === null) return [];
+  if (!Array.isArray(kite) || !kite.every((c) => typeof c === "string" && c.trim())) {
+    return ["sources.kite must be a list of category names"];
+  }
+  const errors = [];
+  if (new Set(kite).size !== kite.length) errors.push("sources.kite has duplicate categories");
+  if (kite.length > PY_PARITY.KITE_MAX_CATEGORIES) {
+    errors.push(`sources.kite has ${kite.length} categories (max ${PY_PARITY.KITE_MAX_CATEGORIES})`);
+  }
+  return errors;
+}
+
 export function validateProfile(profile) {
   const P = PY_PARITY;
   const errors = [];
@@ -176,6 +192,8 @@ export function validateProfile(profile) {
   if (merged.schedule === "weekly" && !P.WEEKDAYS.includes(merged.schedule_day)) {
     errors.push(`schedule_day=${JSON.stringify(merged.schedule_day)} must be a weekday name`);
   }
+
+  errors.push(...kiteSourceErrors((merged.sources || {}).kite));
 
   const t = merged.trace;
   if (!t || typeof t !== "object" || Array.isArray(t)) {

@@ -41,6 +41,8 @@
   .banner { padding: .6rem .8rem; border-radius: 6px; margin: .6rem 0; border: 1px solid; }
   .banner.warn { background: var(--warn-bg); border-color: var(--warn-border); }
   .banner.error { background: var(--error-bg); border-color: var(--error-border); }
+  .hint .err { color: var(--error-border); font-weight: 600; }
+  select[multiple] { width: 100%; }
   .banner.ok { background: var(--ok-bg); border-color: var(--ok-border); }
   .badge { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .8rem;
            border: 1px solid var(--border); }
@@ -168,6 +170,11 @@
         <textarea id="f-rss"></textarea></label>
       <label>OPML file (path in repo — leave the default unless you know better)
         <input type="text" id="f-opml"></label>
+      <label>Kagi News categories (Ctrl/Cmd-click to pick several)
+        <select multiple id="f-kite" size="8"></select></label>
+      <p class="hint"><span id="kite-count"></span> <span id="kite-status"></span><br>
+        Pre-clustered, multi-outlet stories, refreshed daily at 12:00 UTC.
+        Content is CC BY-NC: personal, non-commercial shows only.</p>
       <label class="check"><input type="checkbox" id="f-brave"> Brave search</label>
       <label class="check"><input type="checkbox" id="f-kagi"> Kagi search</label>
     </fieldset>
@@ -292,6 +299,7 @@
   },
   "WEEKDAYS": ["friday", "monday", "saturday", "sunday", "thursday", "tuesday", "wednesday"],
   "LENGTH_RANGE": [5, 30],
+  "KITE_MAX_CATEGORIES": 8,
   "TRACE_CATEGORIES": {
     "transparency": 4,
     "sourceIntegrity": 3,
@@ -390,6 +398,58 @@ function publishProblems(profile) {
 // ── Save-blocking validation (mirror of config_loader.load_podcast_profile
 //    + trace.validate_trace; the Worker re-runs the same checks server-side) ─
 
+// Mirror of config_loader._validate_kite_sources (structural checks; the
+// known-name check stays in Python, the picker only offers Kite's own names).
+function kiteSourceErrors(kite) {
+  if (kite === undefined || kite === null) return [];
+  if (!Array.isArray(kite) || !kite.every((c) => typeof c === "string" && c.trim())) {
+    return ["sources.kite must be a list of category names"];
+  }
+  const errors = [];
+  if (new Set(kite).size !== kite.length) errors.push("sources.kite has duplicate categories");
+  if (kite.length > P.KITE_MAX_CATEGORIES) {
+    errors.push(`sources.kite has ${kite.length} categories (max ${P.KITE_MAX_CATEGORIES})`);
+  }
+  return errors;
+}
+
+// ── Kagi News (Kite) category picker ─────────────────────────────────────
+// news.kagi.com directly: kite.kagi.com/kite.json redirects without CORS headers.
+const KITE_INDEX_BROWSER_URL = "https://news.kagi.com/kite.json";
+let kiteNames = null;  // fetched once per page load; null = not yet / retry
+
+function selectedKite() { return [...$("f-kite").selectedOptions].map((o) => o.value); }
+
+function updateKiteCount() {
+  const n = selectedKite().length;
+  $("kite-count").textContent = `${n} of max ${P.KITE_MAX_CATEGORIES} selected`;
+  $("kite-count").classList.toggle("err", n > P.KITE_MAX_CATEGORIES);
+}
+
+function renderKiteOptions(selected) {
+  const names = [...new Set([...(kiteNames || []), ...selected])].sort();
+  $("f-kite").replaceChildren(...names.map((n) => new Option(n, n, false, selected.includes(n))));
+  updateKiteCount();
+}
+
+// Renders the saved picks at once (so a quick save never drops them), then
+// widens to Kite's full list when it arrives, keeping whatever is selected then.
+async function fillKitePicker(selected) {
+  renderKiteOptions(selected);
+  if (kiteNames === null) {
+    try {
+      const res = await fetch(KITE_INDEX_BROWSER_URL);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      kiteNames = ((await res.json()).categories || []).map((c) => c && c.name).filter(Boolean);
+      $("kite-status").textContent = "";
+    } catch (e) {
+      $("kite-status").textContent = `Couldn't load Kagi News categories (${e.message}); showing current picks only.`;
+      return;
+    }
+  }
+  renderKiteOptions(selectedKite());
+}
+
 function validateProfile(profile, name, isCreate) {
   const errors = [];
   if (isCreate) {
@@ -406,6 +466,8 @@ function validateProfile(profile, name, isCreate) {
   if (profile.schedule === "weekly" && !P.WEEKDAYS.includes(profile.schedule_day)) {
     errors.push(`schedule_day '${profile.schedule_day}' must be a weekday name.`);
   }
+  const kiteErr = kiteSourceErrors((profile.sources || {}).kite);
+  errors.push(...kiteErr.map((e) => `${e}.`));
   const t = profile.trace || {};
   const missing = P.TRACE_REQUIRED_FIELDS.filter((f) => !(f in t) || t[f] === "" ||
     (Array.isArray(t[f]) && !t[f].length));
@@ -665,7 +727,7 @@ function newShowTemplate() {
   const today = new Date().toISOString().slice(0, 10);
   return {
     title: "", tagline: "",
-    sources: { opml: "config/feeds.opml", rss: [], keywords: [] },
+    sources: { opml: "config/feeds.opml", rss: [], keywords: [], kite: [] },
     ...P.PROFILE_DEFAULTS,
     region_hint: "",
     search: { brave: true, kagi: true },
@@ -720,6 +782,7 @@ function openForm({ name, copyFrom, wizard } = {}) {
   $("f-opml").value = src.opml || "";
   $("f-rss").value = (src.rss || []).join("\n");
   $("f-keywords").value = (src.keywords || []).join("\n");
+  fillKitePicker(src.kite || []);
   const search = data.search || {};
   $("f-brave").checked = !!search.brave;
   $("f-kagi").checked = !!search.kagi;
@@ -788,8 +851,9 @@ function wizardStepErrors(stepName) {
     else if (name in state.profiles) errors.push(`A show named '${name}' already exists.`);
     if (!val("f-title").trim()) errors.push("Give the show a title.");
   }
-  if (stepName === "Topic" && !lines("f-keywords").length && !lines("f-rss").length) {
-    errors.push("Add at least one keyword or RSS feed so the show has sources.");
+  if (stepName === "Topic" && !lines("f-keywords").length && !lines("f-rss").length &&
+      !selectedKite().length) {
+    errors.push("Add at least one keyword, RSS feed or Kagi News category so the show has sources.");
   }
   if (stepName === "Format") {
     const len = parseInt(val("f-length"), 10);
@@ -824,7 +888,7 @@ function renderReview() {
   const entries = [
     ["Show", `${profile.title} (${name})`],
     ["Tagline", profile.tagline || "—"],
-    ["Sources", `${(profile.sources.keywords || []).length} keywords, ${(profile.sources.rss || []).length} extra feeds`],
+    ["Sources", `${(profile.sources.keywords || []).length} keywords, ${(profile.sources.rss || []).length} extra feeds, ${(profile.sources.kite || []).length} Kagi News categories`],
     ["Format", `${profile.scope} · ${profile.cadence} · ${profile.depth} · ${profile.length_minutes} min`],
     ["Schedule", profile.schedule === "daily" ? "daily" : `weekly on ${profile.schedule_day}`],
     ["Corrections contact", profile.email || "— (publish gate will refuse until set)"],
@@ -848,6 +912,8 @@ function formToProfile(original) {
   p.tagline = val("f-tagline").trim();
   p.sources = { ...(original.sources || {}),
                 opml: val("f-opml").trim(), rss: lines("f-rss"), keywords: lines("f-keywords") };
+  const kite = selectedKite();
+  if (kite.length) p.sources.kite = kite; else delete p.sources.kite;
   p.scope = val("f-scope");
   p.region_hint = val("f-region-hint").trim();
   p.cadence = val("f-cadence");
@@ -1034,6 +1100,7 @@ function init() {
   $("wiz-cancel").addEventListener("click", () => showView("dashboard"));
   $("wiz-back").addEventListener("click", () => { state.wizardStep--; renderWizardStep(); });
   $("wiz-next").addEventListener("click", wizardNext);
+  $("f-kite").addEventListener("change", updateKiteCount);
   $("episodes-back").addEventListener("click", () => showView("dashboard"));
   $("rss-copy").addEventListener("click", () => navigator.clipboard.writeText(val("rss-url")));
 
