@@ -9,6 +9,7 @@ strings are hard-coded in the pipeline.
 """
 
 import json
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -124,6 +125,45 @@ def get_voice_instructions_for_host(host_key):
 def get_speed_for_host(host_key):
     """Get OpenAI TTS speed multiplier for a host (defaults to 1.0)."""
     return load_hosts_config()[host_key].get("speed", 1.0)
+
+
+# One switch for every small structured Claude call (relevance scoring, story
+# clustering). Haiku 5.5 is a tenth of Haiku 4.5's price; it thinks by default,
+# so those calls pass small_call_params(model). An empty env var means unset.
+HAIKU_MODEL = os.getenv("CLAUDE_HAIKU_MODEL") or "claude-haiku-5-5"
+
+
+def small_call_params(model: str) -> dict:
+    """Request kwargs that keep a small JSON call from spending its budget thinking.
+
+    The lowest thinking setting differs by model and the wrong one is a 400:
+    Sonnet 5.5 rejects {"type": "disabled"} and takes {"type": "between_tools"};
+    Opus 5.5 and Fable cannot turn thinking off at all, so they get low effort;
+    pre-4.6 models (Haiku 4.5 etc.) don't think unless asked, so nothing is sent.
+    Haiku 5.5 and Sonnet 5 accept "disabled" at their default effort.
+    """
+    if model.startswith("claude-sonnet-5-5"):
+        return {"thinking": {"type": "between_tools"}}
+    if model.startswith(("claude-opus-5-5", "claude-fable", "claude-mythos")):
+        return {"output_config": {"effort": "low"}}
+    if model.startswith(("claude-haiku-5", "claude-sonnet-5", "claude-opus-5")):
+        return {"thinking": {"type": "disabled"}}
+    return {}
+
+
+def parse_json_object(text: str) -> dict:
+    """The first JSON object in a model reply, ignoring fences or trailing prose.
+
+    json.loads raised "Extra data" when Haiku appended a sentence after the
+    object, which silently skipped the whole step (upstream, 2026-07-29).
+    """
+    start = (text or "").find("{")
+    if start < 0:
+        raise ValueError("no JSON object in reply")
+    obj, _ = json.JSONDecoder().raw_decode(text[start:])
+    if not isinstance(obj, dict):
+        raise ValueError("reply JSON is not an object")
+    return obj
 
 
 def message_text(response) -> str:

@@ -23,9 +23,11 @@ and RSS emission are ports of that show's proven code.
 
 import argparse
 import glob
+import ipaddress
 import json
 import os
 import re
+import socket
 import sys
 import tempfile
 import time
@@ -34,6 +36,7 @@ import zlib
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from string import Template
+from urllib.parse import urljoin, urlparse
 
 import requests
 
@@ -45,6 +48,8 @@ from config_loader import (
     get_voice_for_host,
     get_speed_for_host,
     message_text,
+    HAIKU_MODEL,
+    small_call_params,
 )
 import trace as trace_mod
 import sources
@@ -107,17 +112,68 @@ NEWS_BODY_MIN_CHARS = 400
 
 _openai_quota_exceeded = False
 
+# Above this max_tokens the SDK refuses a non-streaming request it expects to
+# run past ~10 minutes ("Streaming is required"), so larger calls stream.
+STREAM_ABOVE_MAX_TOKENS = 16000
+
+# Exit codes the workflow reads. A usage limit lifts itself on a stated date, so
+# the day is skipped with a warning; an empty credit balance needs a human, so
+# that run goes red.
+EXIT_USAGE_LIMIT = 75      # EX_TEMPFAIL
+EXIT_CREDITS_EXHAUSTED = 79
+
+# Matched on wording, not status code: OpenAI answers both an ordinary rate
+# limit and an empty balance with a 429, and only one is a wall.
+_CREDIT_WALL_MARKERS = (
+    "credit balance is too low",    # Anthropic (400)
+    "credit_balance_exhausted",     # OpenAI (429)
+    "insufficient_quota",           # OpenAI (429)
+)
+
 
 # ── API helpers ─────────────────────────────────────────────────────────────
 
+def _billing_wall(exc: Exception) -> str | None:
+    """Why exc is a money wall no retry can clear (usage limit / empty balance), else None."""
+    text = str(exc).lower()
+    if "usage limit" in text:
+        m = re.search(r"regain access on ([^.'\"}]+)", str(exc))
+        return f"usage limit reached — access returns {m.group(1).strip() if m else 'later'}"
+    if any(marker in text for marker in _CREDIT_WALL_MARKERS):
+        return "credit balance exhausted — someone has to add credits"
+    return None
+
+
+def preflight_anthropic(client) -> None:
+    """Exit before any paid work if the Anthropic account is walled.
+
+    One 1-token Haiku call (a fraction of a cent) instead of discovering the
+    wall at the script call, after Brave searches, body fetches and scoring —
+    and again on every retry run (upstream, 2026-07-25 and 2026-08-23).
+    An inconclusive error is reported and the run carries on.
+    """
+    try:
+        client.messages.create(model=HAIKU_MODEL, max_tokens=1,
+                               messages=[{"role": "user", "content": "."}],
+                               **small_call_params(HAIKU_MODEL))
+        _log_api_call("claude-preflight", "calls", 1)
+    except Exception as e:
+        reason = _billing_wall(e)
+        if not reason:
+            print(f"  ⚠️  Anthropic preflight inconclusive ({e}) — continuing")
+            return
+        print(f"🛑 Anthropic: {reason}. Skipping this run: no search, scoring or TTS spend.")
+        sys.exit(EXIT_USAGE_LIMIT if reason.startswith("usage limit") else EXIT_CREDITS_EXHAUSTED)
+
+
 def api_retry(func, max_retries=3, base_delay=2):
-    """Call func() with exponential backoff on transient errors."""
+    """Call func() with exponential backoff on transient errors (never on a money wall)."""
     for attempt in range(max_retries + 1):
         try:
             return func()
         except Exception as e:
             err_str = str(e)
-            is_quota = 'insufficient_quota' in err_str
+            is_quota = _billing_wall(e) is not None
             is_transient = not is_quota and any(
                 s in err_str for s in ['429', '503', '502', 'timeout', 'Connection'])
             if attempt < max_retries and is_transient:
@@ -151,6 +207,27 @@ def _print_api_totals() -> None:
     for service in sorted(_API_TOTALS):
         parts = " ".join(f"{u}={v}" for u, v in _API_TOTALS[service].items())
         print(f"    {service} {parts}")
+
+
+def send_claude(client, **kwargs):
+    """messages.create, or a stream for budgets the SDK won't send unstreamed."""
+    if kwargs.get("max_tokens", 0) > STREAM_ABOVE_MAX_TOKENS:
+        with client.messages.stream(**kwargs) as stream:
+            return stream.get_final_message()
+    return client.messages.create(**kwargs)
+
+
+def _supports_effort(model: str) -> bool:
+    """output_config.effort exists on the 4.6+/5.x families; older models 400 on it."""
+    return model.startswith(("claude-sonnet-5", "claude-opus-5", "claude-haiku-5",
+                             "claude-fable", "claude-mythos", "claude-opus-4-6",
+                             "claude-opus-4-7", "claude-opus-4-8", "claude-sonnet-4-6"))
+
+
+def _log_claude_usage(service: str, response) -> None:
+    usage = getattr(response, "usage", None)
+    _log_api_call(service, "input_tokens", getattr(usage, "input_tokens", "?"))
+    _log_api_call(service, "output_tokens", getattr(usage, "output_tokens", "?"))
 
 
 def get_anthropic_client():
@@ -213,11 +290,70 @@ _TAG_RE = re.compile(r'<(script|style)[^>]*>.*?</\1>', re.DOTALL | re.IGNORECASE
 _HTML_RE = re.compile(r'<[^>]+>')
 
 
+MAX_REDIRECTS = 5
+
+
+def _public_http_url(url) -> bool:
+    """True for an http(s) URL whose literal host is not loopback/private/link-local."""
+    try:
+        parts = urlparse((url or "").strip())
+        host = (parts.hostname or "").rstrip(".")
+    except ValueError:
+        return False
+    if parts.scheme not in ("http", "https") or not host or parts.username or parts.password:
+        return False
+    if host == "localhost" or host.endswith((".localhost", ".local", ".internal")):
+        return False
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        address = None
+        if re.fullmatch(r"[0-9a-fx.]+", host):  # inet_aton forms such as 127.1
+            try:
+                address = ipaddress.ip_address(socket.inet_aton(host))
+            except OSError:
+                pass
+    return address is None or address.is_global
+
+
+def _resolves_public(host: str) -> bool:
+    """True if every address host resolves to is global. Fails closed."""
+    try:
+        infos = socket.getaddrinfo(host, None, proto=socket.IPPROTO_TCP)
+        addresses = {ipaddress.ip_address(info[4][0].split("%")[0]) for info in infos}
+    except (OSError, UnicodeError, ValueError):
+        return False
+    return bool(addresses) and all(a.is_global for a in addresses)
+
+
+def _get_public(url: str, **kwargs):
+    """requests.get for a feed-supplied URL, or None if any hop is not public.
+
+    Feed links are third-party input and the runner holds API keys, so every hop
+    (redirects followed by hand) must be http(s) and resolve only to global
+    addresses before it is requested. Ported from curated-podcast-generator.
+    """
+    # ponytail: resolve-and-check, not resolve-and-pin. requests resolves again,
+    # so a DNS answer that changes between the two lookups still gets through.
+    for _ in range(MAX_REDIRECTS + 1):
+        if not _public_http_url(url) or not _resolves_public(urlparse(url).hostname):
+            return None
+        resp = requests.get(url, allow_redirects=False, **kwargs)
+        if not resp.is_redirect:
+            return resp
+        url = urljoin(url, resp.headers["location"])
+        resp.close()
+    return None
+
+
 def _fetch_article_body(url):
     """Fetch an article URL and reduce it to readable text. '' on any failure."""
     try:
-        resp = requests.get(url, timeout=15, headers={
+        resp = _get_public(url, timeout=15, headers={
             "User-Agent": "PersonalPodcastCreator/1.0 (personal use)"})
+        if resp is None:
+            print(f"  ⚠️  body fetch refused for non-public URL {url[:60]}")
+            return ""
         resp.raise_for_status()
         text = _TAG_RE.sub(' ', resp.text)
         text = _HTML_RE.sub(' ', text)
@@ -367,18 +503,31 @@ def generate_episode_script(profile, plan, articles, evolving_context="",
         host_names=host_names,
     )
 
-    # Script length scales max_tokens: ~1.5 tokens/word plus headroom.
-    max_tokens = min(16000, max(4000, int(plan["target_words"] * 2)))
+    # ~1.5 tokens/word for the script, plus room for the model's thinking, which
+    # is on by default on Sonnet 5 and shares this budget. max_tokens is a
+    # ceiling, not a spend: unused headroom costs nothing.
+    max_tokens = min(32000, max(8000, int(plan["target_words"] * 3)))
+    request = dict(model=SCRIPT_MODEL, max_tokens=max_tokens, system=system_prompt,
+                   messages=[{"role": "user", "content": user_prompt}])
     print(f"  Generating {plan['format']} script (~{plan['target_words']} words) "
           f"with {SCRIPT_MODEL}...")
-    response = api_retry(lambda: client.messages.create(
-        model=SCRIPT_MODEL,
-        max_tokens=max_tokens,
-        system=system_prompt,
-        messages=[{"role": "user", "content": user_prompt}],
-    ))
-    usage = getattr(response, "usage", None)
-    _log_api_call("claude-script", "input_tokens", getattr(usage, "input_tokens", "?"))
+    response = api_retry(lambda: send_claude(client, **request))
+    _log_claude_usage("claude-script", response)
+
+    if getattr(response, "stop_reason", None) == "max_tokens":
+        # One retry with more room and less thinking (upstream 2026-07-29 / 10-12).
+        print("  ⚠️  Script cut off at max_tokens — retrying once with a larger budget, low effort")
+        request["max_tokens"] = min(64000, int(max_tokens * 1.5))
+        if _supports_effort(SCRIPT_MODEL):
+            request["output_config"] = {"effort": "low"}
+        response = api_retry(lambda: send_claude(client, **request))
+        _log_claude_usage("claude-script", response)
+
+    if getattr(response, "stop_reason", None) in ("max_tokens", "refusal"):
+        # Never air half a script: a truncated one loses its resolution and
+        # corrections line. Fail the run instead (no episode beats a broken one).
+        print(f"❌ Script generation stopped ({response.stop_reason}) — not publishing a partial script")
+        return None
     script = message_text(response)
     return script or None
 
@@ -409,18 +558,25 @@ def polish_script(script, profile, articles, client=None):
         speaker_tags=speaker_tags,
         script=script,
     )
+    # The polish returns the whole script again (~len/4 tokens) plus thinking.
+    max_tokens = min(32000, max(8000, len(script) // 2))
     print("  Polishing + fact-checking script...")
     try:
-        response = api_retry(lambda: client.messages.create(
+        response = api_retry(lambda: send_claude(
+            client,
             model=POLISH_MODEL,
-            max_tokens=16000,
+            max_tokens=max_tokens,
             messages=[{"role": "user", "content": prompt}],
         ))
-        usage = getattr(response, "usage", None)
-        _log_api_call("claude-polish", "input_tokens", getattr(usage, "input_tokens", "?"))
+        _log_claude_usage("claude-polish", response)
         polished = message_text(response)
     except Exception as e:
         print(f"  ⚠️  Polish pass failed ({e}) — using raw script")
+        return script
+    if getattr(response, "stop_reason", None) in ("max_tokens", "refusal"):
+        # A cut-off polish still carries both host tags, so the format check
+        # below would wave half a script through to air.
+        print(f"  ⚠️  Polish stopped ({response.stop_reason}) — using raw script")
         return script
 
     host_tags = [f"**{h.get('name', k).upper()}:**" for k, h in hosts.items()]
@@ -1369,6 +1525,11 @@ def _generate_episode(profile_name, force=False, dry_run=False):
         generate_show_index_html(profile)
         return True
 
+    # Spend-cap preflight before any paid work (search, scoring, script, TTS)
+    client = get_anthropic_client()
+    if client is not None and not dry_run:
+        preflight_anthropic(client)
+
     # Ingest: profile feeds + keyword search, deduped by URL
     articles = sources.gather_feed_articles(profile)
     articles += search.gather_keyword_articles(profile)
@@ -1384,7 +1545,6 @@ def _generate_episode(profile_name, force=False, dry_run=False):
         return False
 
     # Rank + select (dedup vs history, Haiku scoring, evolving-story boost)
-    client = get_anthropic_client()
     selected, evolving_context = ranking.rank_and_select(
         merged, profile, plan, client=client, podcasts_dir=pdir)
     if not selected:

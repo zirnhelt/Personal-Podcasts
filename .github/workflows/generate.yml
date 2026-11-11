@@ -109,7 +109,15 @@ jobs:
         run: |
           FORCE_FLAG=""
           if [ "${{ inputs.force }}" = "true" ]; then FORCE_FLAG="--force"; fi
-          python podcast_generator.py --profile "${{ matrix.profile }}" $FORCE_FLAG
+          # 75 = Anthropic usage limit (lifts on its own): skip the day with a
+          # warning. 79 = credit balance empty: stays red, a human has to act.
+          code=0
+          python podcast_generator.py --profile "${{ matrix.profile }}" $FORCE_FLAG || code=$?
+          if [ "$code" = "75" ]; then
+            echo "::warning::Anthropic usage limit reached — ${{ matrix.profile }} skipped this run"
+            exit 0
+          fi
+          exit "$code"
 
       - name: Commit generated artifacts
         if: steps.schedule.outputs.due == 'true'
