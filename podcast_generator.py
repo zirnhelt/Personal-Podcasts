@@ -328,13 +328,33 @@ def build_system_prompt(profile, plan, psa_info=None):
     return f"{system}\n\n{structure}"
 
 
+KITE_PROMPT_OUTLETS = 5  # outlets named per Kite cluster in the prompt; the full list goes to citations
+
+
+def _uses_kite(articles) -> bool:
+    """True when any article is a Kagi News cluster (CC BY-NC: credit required)."""
+    return any(a.get("via") == sources.KITE_VIA for a in articles)
+
+
+def _outlet_names(article, limit=None) -> str:
+    names = [o["name"] for o in article.get("outlets", []) if o.get("name")]
+    shown = names[:limit] if limit else names
+    more = len(names) - len(shown)
+    return ", ".join(shown) + (f" and {more} more" if more > 0 else "")
+
+
 def _sources_block(articles):
     """Compact source-article block for the user prompt."""
     lines = ["SOURCE ARTICLES:\n"]
+    if _uses_kite(articles):
+        lines.append(load_prompts_config()["kite_sources_note"] + "\n")
     for a in articles:
         lines.append(f"Title: {a.get('title', '')}")
         lines.append(f"Source: {a.get('source', '')}")
         lines.append(f"URL: {a.get('url', '')}")
+        if a.get("via") == sources.KITE_VIA:
+            lines.append(f"Kagi News summary of {a.get('_kite_sources', len(a.get('outlets', [])))} "
+                         f"outlets. Reported by: {_outlet_names(a, KITE_PROMPT_OUTLETS)}")
         if a.get("published"):
             lines.append(f"Published: {a['published']}")
         if a.get("summary"):
@@ -430,7 +450,7 @@ def polish_script(script, profile, articles, client=None):
     return script
 
 
-def append_spoken_disclosure(script, profile):
+def append_spoken_disclosure(script, profile, articles=()):
     """Append the TRACE spoken disclosure as the final host line of the script.
 
     Living in the script (rather than only the assembler) means every render
@@ -442,8 +462,10 @@ def append_spoken_disclosure(script, profile):
     hosts = load_hosts_config()
     first_host = next(iter(hosts.values()))
     tag = first_host.get("name", "host").upper()
+    # CC BY-NC credit, spoken on any episode a Kagi News cluster reached.
+    kite = " Story summaries from Kagi News." if _uses_kite(articles) else ""
     contact = f" Corrections and feedback: {profile['email']}."
-    return f"{script.rstrip()}\n\n**{tag}:** {disclosure}{contact}\n"
+    return f"{script.rstrip()}\n\n**{tag}:** {disclosure}{kite}{contact}\n"
 
 
 # ── Citations + show notes ─────────────────────────────────────────────────
@@ -452,6 +474,9 @@ def _article_cited_in_script(article, script):
     """Loose check that an article actually made it into the episode."""
     title_words = [w for w in re.findall(r"\w{5,}", article.get("title", ""))][:3]
     return any(w.lower() in script.lower() for w in title_words) if title_words else True
+
+
+KITE_NOTES_OUTLETS = 8  # outlets named per Kite cluster in show notes; all are in citations JSON
 
 
 def build_show_notes_html(profile, articles, date_str):
@@ -463,11 +488,17 @@ def build_show_notes_html(profile, articles, date_str):
             title = saxutils.escape(a.get("title", "")[:100])
             src = saxutils.escape(a.get("source", ""))
             url = a.get("url", "")
+            outlets = ""
+            if a.get("via") == sources.KITE_VIA:
+                outlets = (f" — {saxutils.escape(sources.KITE_VIA)} summary; reported by "
+                           f"{saxutils.escape(_outlet_names(a, KITE_NOTES_OUTLETS))}")
             if url:
-                parts.append(f'<li>{src}: <a href="{saxutils.escape(url)}">{title}</a></li>')
+                parts.append(f'<li>{src}: <a href="{saxutils.escape(url)}">{title}</a>{outlets}</li>')
             else:
-                parts.append(f"<li>{src}: {title}</li>")
+                parts.append(f"<li>{src}: {title}{outlets}</li>")
         parts.append("</ol>")
+    if _uses_kite(articles):
+        parts.append(f"<p><b>Story summaries:</b> {saxutils.escape(sources.KITE_ATTRIBUTION)}</p>")
     t = profile["trace"]
     parts.append(
         f"<p><b>TRACE transparency:</b> AI-generated episode "
@@ -510,11 +541,14 @@ def write_citations_file(profile, articles, script, date_str):
                         "url": a.get("url", ""),
                         "source": a.get("source", ""),
                         "published": a.get("published", ""),
+                        **({"via": a["via"], "outlets": a.get("outlets", [])}
+                           if a.get("via") else {}),
                     }
                     for a in cited
                 ]
             }
         },
+        **({"attributions": [sources.KITE_ATTRIBUTION]} if _uses_kite(cited) else {}),
         "trace": {
             "total_score": profile["trace"]["total_score"],
             "total_max": profile["trace"]["total_max"],
@@ -1417,7 +1451,7 @@ def _generate_episode(profile_name, force=False, dry_run=False):
     script = polish_script(script, profile, selected, client=client)
 
     # Spoken TRACE disclosure — in the script so every render path carries it
-    script = append_spoken_disclosure(script, profile)
+    script = append_spoken_disclosure(script, profile, selected)
 
     # Persist script
     pdir.mkdir(parents=True, exist_ok=True)

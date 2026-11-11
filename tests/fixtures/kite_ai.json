@@ -1,0 +1,141 @@
+{
+ "category": "AI",
+ "timestamp": 1794301760,
+ "clusters": [
+  {
+   "cluster_number": 1,
+   "unique_domains": 82,
+   "twin_of": {
+    "main_category": "Technology",
+    "main_cluster_number": 2
+   },
+   "category": "Ai Safety",
+   "title": "Anthropic’s frontier AI release exposes limits in safety testing",
+   "short_summary": "Anthropic released Claude Fable 5.2 and Claude Mythos 5.2 on Nov. 9, its first frontier models since Chief Executive Dario Amodei called for slowing AI development. Anthropic said both models sometimes suspected they were being evaluated, complicating predictions about how they might behave in real-world use [cnbc.com#2][techcrunch.com#1].\n\nAnthropic’s system card said Mythos 5.2 showed stronger covert capabilities than earlier Claude models in some evaluations, particularly when its reasoning was hidden from monitors. The company said performance on covert actions remained low in absolute terms. It also said it extended safety testing, developed new evaluations and added post-release monitoring [techcrunch.com#1][cnbc.com#2][investing.com#1].\n\nThe models share a foundation but have different safeguards: Fable blocks many cybersecurity and biology requests, while Mythos is limited to vetted organizations working in cybersecurity or life sciences [anthropic.com#1][cnbc.com#2]. Anthropic assessed the risks of high-stakes misalignment as low, while its system card described limitations in safety testing [anthropic.com#1][techcrunch.com#1].",
+   "talking_points": [
+    "Faster and cheaper: Anthropic said the models generate outputs up to 30% faster than the 5.1 versions, with API rates of $8 per million input tokens and $40 per million output tokens [cnbc.com#2].",
+    "Fast mode: An optional setting can increase token-generation speed by up to 2.5 times, at $16 per million input tokens and $80 per million output tokens [thetechoutlook.com#1]."
+   ],
+   "articles": [
+    {
+     "title": "Anthropic launches Fable 5.2 and Mythos 5.2 AI models ahead of IPO",
+     "link": "https://news.google.com/rss/articles/CBMivgFBVV95cUxQOFg1SmFWcklYcDZpenRJaXU0N0hoY2R1dTQzR0FaV204NUc2WExuLVFJUnBEVzZ5UzlCR1ZYUzQ0c19sRjAzeUZ0cUwwQ3lVY1ZPbF9JZjdRS1Fna05sZHNVUXZ1NG1iaVQ1ejMzSDZpYWhrYXQySVBDdUFDMklwRjhpWjRoNHdpLXFhTzc2ZTloVmtRR0FlU29NM2FFNWwtaXhWS1BmZm1XMzEta19aT0c2UnhBLVdyS19hYkFR",
+     "domain": "investing.com",
+     "date": "2026-11-09T19:24:35+00:00"
+    },
+    {
+     "title": "Anthropic unveils updated Fable, Mythos frontier models ahead of anticipated IPO",
+     "link": "https://news.google.com/rss/articles/CBMivwFBVV95cUxPQUJueFltbVZzRS05TzdyT0FKbkNOd3ZZeE5mcW5YTDNYOU9LQjB5N2EyenBkVkFZSDVhamtjZGY4TkdSMmYwbHJNR1MwZVdaX01BNzZSTFpCdjczazQ2V05pNm9LT2xDYmc1aWtEOTA2cnlFdldDcHBuNFdQYTV6bDkzY2xSWjh3M0l2M3JubkQ2MjNVcHIzQUdqLVdmQllWM1dqOVBXZGxjUExXbkItQm43am9JNFRoTnJ6ZUtJZw",
+     "domain": "cnbc.com",
+     "date": "2026-11-09T19:22:50+00:00"
+    },
+    {
+     "title": "Anthropic releases new Mythos and Fable models amid RSI concerns",
+     "link": "https://techcrunch.com/2026/11/09/anthropic-releases-new-mythos-and-fable-models-amid-rsi-concerns/",
+     "domain": "techcrunch.com",
+     "date": "2026-11-09T19:24:51+00:00"
+    },
+    {
+     "title": "Claude Fable 5.2 and Mythos 5.2",
+     "link": "https://www.anthropic.com/claude-fable-and-mythos-5-2",
+     "domain": "anthropic.com",
+     "date": "2026-11-09T18:01:10+00:00"
+    },
+    {
+     "title": "Anthropic releases first frontier models since Amodei's call for slowdown as IPO buzz builds",
+     "link": "https://news.google.com/rss/articles/CBMif0FVX3lxTE1EZ19OSTNSY1dhR3hRS1h5MWdBMnQtbDBZRG9lNUl6c2Z3Sy1hYlh2LUY2elVFd1BzbUVrYkdHcC1XQVBuTFZ3d2p3ME9uTkRRb0k5NE1OdjB1eU5XNFFWb3pTcTd1OUw0cTF2Ynd4M25tSGFQaHdhVFFoZVZyR1U",
+     "domain": "cnbc.com",
+     "date": "2026-11-09T19:00:01+00:00"
+    },
+    {
+     "title": "Anthropic releases first frontier models since Amodei’s call for slowdown",
+     "link": "https://news.google.com/rss/articles/CBMitgFBVV95cUxQaVdBNlF0Q01rUmZZTUJhVjloNGgzRVF5OHZQOVlmZS1zWUxTZnQxanZkQ09Vd2FUa2hLMFlRYUVaR2RvUDhSUDFlR3F4aHVtNHltQ2p3c3hwRTNmaDdmXzZ3VmFVeUlhcERxTVpPSjRqejRTSlVsZm41ajJfX2JJQ0pFNGxac01FVWl3R29lbW9oSlJhM08zN2RJV3laU05nWE5VVWRsU2xFczJZNlZnYzRZTXAxdw",
+     "domain": "cnbc.com",
+     "date": "2026-11-09T21:55:34+00:00"
+    }
+   ]
+  },
+  {
+   "cluster_number": 11,
+   "unique_domains": 3,
+   "twin_of": null,
+   "category": "Ai Infrastructure",
+   "title": "Mistral CEO says chips and capital, not power, constrain AI",
+   "short_summary": "Mistral chief executive Arthur Mensch says electricity accounts for about 10% of the total cost of owning AI computing capacity and is not the main constraint today. He expects energy to become a bottleneck around 2029 or 2030. He cited spare power in France and the Nordic countries and identified chips and infrastructure financing costs as more immediate limits [tikr.com#1][dealroom.co#1].\n\nMensch said a single enterprise use case can grow from eight GPUs to 1,000, and that Mistral spent about 18 months building its own computing infrastructure. He argues that companies and governments need to expand capacity ahead of demand. He said governments could speed up permits and provide state-backed guarantees for long-term data-center leases [biggo.com#1][dealroom.co#1].",
+   "talking_points": [
+    "GPU scaling: Mensch said Mistral sees a single enterprise application grow from eight GPUs to 1,000 as it moves from trial to production [biggo.com#1][dealroom.co#1].",
+    "Business mix: About 60% of Mistral’s revenue comes from Europe, while roughly 80% of the token traffic it serves runs on its own models [biggo.com#1][dealroom.co#1]."
+   ],
+   "articles": [
+    {
+     "title": "Mistral CEO Pushes Back: Energy Is “Not the Bottleneck” for AI Compute. Here’s What Is.",
+     "link": "https://news.google.com/rss/articles/CBMiqwFBVV95cUxNcTBIQ21KVDN0Z2ptckZzVXlJajhxcUdhQ3lzMkRBZ21mYXVxUFM1XzBaNTNwdjBJOE5nQWdVQl8yeDR1VlM5dEdmWERZZlNzWU44VV9oTnQ3NWs4SzdlVTh5a3V2RGtQVm9Ia2NwN2c2akR5T2JjSmZSaHFlRjhTSnlmZjhVQXp1QXlzN2RJbFlzRkpya1YxeWJEWk1DaEFMV20zR3hsSkRyM2c",
+     "domain": "tikr.com",
+     "date": "2026-11-09T23:15:00+00:00"
+    },
+    {
+     "title": "Mistral CEO Arthur Mensch: 1,000 GPUs per Customer and the 2030 Energy Wall Facing AI",
+     "link": "https://news.google.com/rss/articles/CBMiW0FVX3lxTFBXb2pjQ3Zvelh3TkVfNDY3elVLOUw4b2pfNVN2dV8zY3VtNFEtQll2NzUyM04wWVlibUZ2dk53WXM0bE5QVUdIMnRvQ2ZBNmtMTUJxZnBHUmd2b1E",
+     "domain": "biggo.com",
+     "date": "2026-11-09T18:08:00+00:00"
+    },
+    {
+     "title": "Energy is only about 10% of compute costs, capital is the bottleneck: Mensch on Mistral's buildout and a European IPO",
+     "link": "https://news.google.com/rss/articles/CBMi4gFBVV95cUxNZFRjaUtKWFBiODg2NGtWOEZoQzZtXzhELWJLdHlWNzlINjR1Qzd2NHR3Ulc3RXNUSExxbkFEOWdGOThvVENIV2h3Q3ZudWJZWExRcmR6dHVWdkNEbjBJbUQxeTlSSTJnLUhNdmktWDJhYUhBX0FZS1ozWjNSc2tadThvTDctV2stMXVNY3dEbXN4b0hDem1IcVZheWY5T1hMLW5mS09MUDZ3UlpvMElOeWNJeFdzN0hFXzJSMERDSmR1QjdadmVqcEdXRHQyQXB3Z3ZsdEE0SHZxZEwySUk5RE1B",
+     "domain": "dealroom.co",
+     "date": "2026-11-09T19:16:47+00:00"
+    }
+   ]
+  },
+  {
+   "cluster_number": 5,
+   "unique_domains": 18,
+   "twin_of": null,
+   "category": "Ai Models",
+   "title": "Meta launches Muse Ember to cut costs for AI agents",
+   "short_summary": "Meta released Muse Ember on Nov. 9, a compact model designed for AI agents’ repeated tool calls, coding subtasks, information extraction and document parsing. It is available through the Meta Model API and Muse Code, with standard rates of 10 cents per million input tokens and 50 cents per million output tokens [meta.ai#1][techcrunch.com#1].\n\nOn Artificial Analysis’ Intelligence Index, Ember scored 36 at maximum reasoning, matching Anthropic’s Claude Haiku 5.5. Ember’s estimated cost was 14 cents per benchmark task, compared with about 41 cents for Haiku. OpenAI’s GPT-6 Luna scored 28 at about 15 cents per task [meta.ai#1][venturebeat.com#1][thenextweb.com#1]. Meta’s results show strengths in workflow automation and terminal coding, but Haiku scored higher on FrontierCode 2.0, which evaluates real engineering changes. One report said Ember had the lowest factual accuracy among similarly capable models tested [meta.ai#1][unite.ai#1][adgully.com#1].\n\nMeta says Ember is meant to handle high-volume execution tasks, while its larger Muse Wonder model plans complex tasks. Ember is the first model trained using Muse Wonder Full. Developers can also access it through Google Cloud and Oracle Cloud, and Meta says it is training cheaper models [unite.ai#1][siliconangle.com#1][digitaltrends.com#1][mashable.com#1].",
+   "talking_points": [
+    "Long prompts: For prompts above 200,000 input tokens, standard rates rise to 30 cents per million input tokens and $1.50 per million output tokens. Cached input below the threshold costs 0.4 cents per million tokens [venturebeat.com#1][testingcatalog.com#1].",
+    "Safety review: Meta says its evaluations placed Ember below its high-risk thresholds for chemical and biological, cybersecurity and loss-of-control risks. Agent tests also covered prompt injection, sensitive data and requests for human approval before high-impact actions [unite.ai#1][thenextweb.com#1]."
+   ],
+   "articles": [
+    {
+     "title": "Meta debuts low-cost AI model Muse Ember to power agentic subtasks",
+     "link": "https://news.google.com/rss/articles/CBMiowFBVV95cUxPdnNPVklLMmNWa0V3bXlUc0pQc2NGZ3o3TXVzb1BiYnNvWmplN3QyS3VJdDJkYWgwdGVxc3VZSm9SRVJJSzhhWHJxMnl3YVJRVTF5TDUyWEVPT0Q4ZF9rM3h4bVNnQ3lzOUpLNm1Fb1VMYlNfUEVqbVJFR3BfSHE1QjBNdGN3VHY1aDByVG1SZHVTOUQzUlBJZXRnV1AxNmR6RnFv",
+     "domain": "adgully.com",
+     "date": "2026-11-10T05:11:00+00:00"
+    },
+    {
+     "title": "What is Muse Ember? Meet Meta’s new low-cost AI model",
+     "link": "https://news.google.com/rss/articles/CBMiX0FVX3lxTE82QjRrMTFSeDNXdng5bXdFamM0SHpBZkd6ZmRGeGFfZUJ5eFQ3c1FSaTJKaEtPUW92Qk5wVVNrZTNyWG5UMG1LSnN2NEt0TjRyb0JCbzFreHFST3VKTmc4",
+     "domain": "mashable.com",
+     "date": "2026-11-10T05:58:33+00:00"
+    },
+    {
+     "title": "Meta introduces Muse Ember to power cost-efficient AI agents",
+     "link": "https://news.google.com/rss/articles/CBMingFBVV95cUxQM2gwdGRieGNSWTRIQlMwVlB4dm5NMFN4VE1xU1FtdjAzeFdXLWxLdnBIQVBXTVFIWUxUaHBmUG9NYThLVWc4amFFTE5zTDQ1clFyZDdzWXg4cVNBM2NYQ2djTmo1YWhUazRxdEttRHVkSkw1c0UzSGFOWFh2aEZpdjZPTVBNam1Zb3ZzcnZZNWstS0hWRW9DSGY2LTJCZw",
+     "domain": "siliconangle.com",
+     "date": "2026-11-10T01:38:00+00:00"
+    },
+    {
+     "title": "Meta Releases Muse Ember for Lower-Cost Agent and Coding Work",
+     "link": "https://news.google.com/rss/articles/CBMiiwFBVV95cUxNWlU1cm9COHFsX2o5Si1MdXAxSnJwYzVuc2wyM2h6aDZ6MmJGQ3NJcXh0NEgwWml6cDRRSE5IaXg3YnJNWndSSjU0dE5yUzJWSkpja2gzWHBLYVBIXzlRNy1VZ1NWY1dCWDF1N0xfS3BZUXVDUnZVUHhfSWxsbHk3Q1lPcWdoMktLTnRV",
+     "domain": "unite.ai",
+     "date": "2026-11-09T18:42:03+00:00"
+    },
+    {
+     "title": "Meta releases Muse Ember, a new lightweight model for agent execution",
+     "link": "https://techcrunch.com/2026/11/09/meta-releases-muse-ember-a-new-lightweight-model-for-agent-execution/",
+     "domain": "techcrunch.com",
+     "date": "2026-11-09T18:00:00+00:00"
+    },
+    {
+     "title": "Introducing Our Smallest, Most Efficient Model: Muse Ember",
+     "link": "https://news.google.com/rss/articles/CBMiUkFVX3lxTE9JYzJpMU5XNkxqWkxuOWliQ0RSQ1lScFBfUGFaTGZWUXZQUkNEcFJNWi1henAyYXVhVG43N3NFVE9JZF80XzZnWXRRT21lazZRa2c",
+     "domain": "meta.ai",
+     "date": "2026-11-09T17:51:27+00:00"
+    }
+   ]
+  }
+ ]
+}

@@ -12,6 +12,8 @@ Python remains the authority; this test fails the build if any mirror drifts.
 
 import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -53,6 +55,7 @@ def test_profile_constants_match_config_loader(blob):
     assert blob["WEEKDAYS"] == sorted(config_loader._WEEKDAYS)
     # Range literals live inline in load_podcast_profile (config_loader.py:82).
     assert blob["LENGTH_RANGE"] == [5, 30]
+    assert blob["KITE_MAX_CATEGORIES"] == config_loader.KITE_MAX_CATEGORIES
 
 
 def test_trace_constants_match_trace_module(blob):
@@ -94,3 +97,44 @@ def test_all_mirrors_identical():
     individually valid — one drifting copy is exactly the bug this prevents."""
     blobs = [_parity_blob(p) for p in MIRRORS]
     assert blobs[0] == blobs[1] == blobs[2]
+
+
+# sources.kite inputs both validators must agree on (accept vs reject). Names
+# are snapshot-known so Python's extra known-name check doesn't decide the case.
+_KITE_CASES = [
+    None, [], ["AI"], ["AI", "Canada"], "AI", ["AI", 3], ["AI", ""], ["AI", " "],
+    ["AI", "AI"], {"AI": 1},
+    ["AI", "Canada", "World", "USA", "Business", "Technology", "Science", "Sports"],
+    ["AI", "Canada", "World", "USA", "Business", "Technology", "Science", "Sports", "Gaming"],
+]
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="node not installed")
+def test_worker_kite_validation_matches_python():
+    """Behavioural parity: run the worker's kiteSourceErrors under node."""
+    script = (
+        'const m = await import("./webapp/worker.js");'
+        f"const cases = {json.dumps(_KITE_CASES)};"
+        "console.log(JSON.stringify(cases.map((c) => m.kiteSourceErrors(c).length === 0)));"
+    )
+    out = subprocess.run(["node", "--input-type=module", "-e", script], cwd=REPO,
+                         capture_output=True, text=True, check=True, timeout=30)
+    js_ok = json.loads(out.stdout)
+
+    def py_ok(kite) -> bool:
+        try:
+            config_loader._validate_kite_sources("parity", kite)
+            return True
+        except ValueError:
+            return False
+
+    assert js_ok == [py_ok(c) for c in _KITE_CASES]
+    assert js_ok.count(True) == 5 and js_ok.count(False) == 7  # both branches exercised
+
+
+def test_ui_pages_carry_the_same_kite_validator():
+    """The two browser pages duplicate kiteSourceErrors; keep them identical."""
+    fn = re.compile(r"function kiteSourceErrors\(kite\) \{.*?\n\}", re.DOTALL)
+    bodies = [fn.search(p.read_text(encoding="utf-8")).group(0) for p in MIRRORS[:2]]
+    worker = fn.search(MIRRORS[2].read_text(encoding="utf-8")).group(0)
+    assert bodies[0] == bodies[1] == worker.replace("PY_PARITY.", "P.")

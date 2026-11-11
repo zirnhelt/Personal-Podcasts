@@ -77,7 +77,7 @@ python -c "import sources, config_loader; print(len(sources.gather_feed_articles
 **Pipeline (`podcast_generator.py --profile <name>`):**
 1. `load_podcast_profile` (validates pickers + TRACE) → `trace.assert_publishable` (hard gate)
 2. `build_episode_plan` — length/depth/cadence → target words, article count, format
-3. Ingest: `sources.gather_feed_articles` (OPML+RSS) + `search.gather_keyword_articles` (Brave/Kagi), URL-deduped
+3. Ingest: `sources.gather_feed_articles` (OPML+RSS+Kagi News/Kite clusters) + `search.gather_keyword_articles` (Brave/Kagi), URL-deduped
 4. `ranking.rank_and_select` — history dedup → batched Haiku relevance scores →
    evolving-story boost → intra-batch clustering → optional Cohere rerank → top N
 5. Depth: `enrich_articles_with_bodies` (deep dives only)
@@ -92,7 +92,7 @@ python -c "import sources, config_loader; print(len(sources.gather_feed_articles
 `podcasts/*`). Shows never share state — citations, PSA rotation, and feeds are
 all per-profile.
 
-**Profiles** (`config/profiles/<name>.json`): sources (opml/rss/keywords),
+**Profiles** (`config/profiles/<name>.json`): sources (opml/rss/keywords/kite),
 scope + region_hint, cadence (news|dialog), depth (titles|deep_dive),
 length_minutes (5–30), schedule (daily|weekly + schedule_day), search engine
 toggles, voices, optional `psa` + `psa_config`, publishing fields (base_url,

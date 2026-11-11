@@ -6,6 +6,8 @@ on:
     # shows. Each matrix job checks its own profile's schedule and exits
     # early when today isn't that show's day; the in-repo idempotency guard
     # (episode_exists_for_period) makes duplicate triggers safe.
+    # Keep this after 12:00 UTC: Kagi News (sources.kite) publishes its daily
+    # batch then, so an earlier run would read yesterday's clusters.
     - cron: "0 13 * * *"
   workflow_dispatch:
     inputs:

@@ -34,7 +34,8 @@ Add `config/profiles/<name>.json` (see `config/profiles/sample.json`):
   "sources": {
     "opml": "config/feeds.opml",           // optional OPML of RSS feeds
     "rss": ["https://.../feed.xml"],        // optional explicit feeds
-    "keywords": ["topic one", "topic two"]  // optional web-search topics
+    "keywords": ["topic one", "topic two"], // optional web-search topics
+    "kite": ["AI", "Canada"]                // optional Kagi News categories (max 8)
   },
   "scope": "regional",            // "regional" | "global"
   "region_hint": "Cariboo, BC",   // appended to searches when regional
@@ -52,6 +53,24 @@ Add `config/profiles/<name>.json` (see `config/profiles/sample.json`):
   "trace": { /* REQUIRED — see sample.json for the full block */ }
 }
 ```
+
+### Kagi News (Kite) categories
+
+`sources.kite` pulls Kagi News's daily clusters: each story is already merged
+across outlets and summarised, so it enters as one article whose body is the
+summary plus talking points, with every claim's outlets kept inline. Names must
+match `kite.json` exactly; the known list is snapshotted in
+`config/kite_categories.json` (refresh with
+`python sources.py --refresh-kite-categories`, which only ever adds names).
+
+- Free: one GET for the index plus one per category, no API key.
+- Clusters with fewer than 2 outlets, an empty summary, or no real outlet link
+  are dropped. A Kite outage just means no Kite stories that run.
+- Hosts credit the original outlets; show notes, `citations_<date>.json` and the
+  spoken credits add "Kagi News (CC BY-NC)" whenever a cluster is used.
+- **Licence:** Kite content is CC BY-NC — keep it off any show that is monetised.
+- **Timing:** Kite refreshes at 12:00 UTC. The scheduled workflow runs at
+  13:00 UTC; a daily show run manually earlier gets yesterday's batch.
 
 Then run it:
 

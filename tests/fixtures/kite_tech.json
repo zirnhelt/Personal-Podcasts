@@ -1,0 +1,56 @@
+{
+ "category": "Technology",
+ "timestamp": 1794301954,
+ "clusters": [
+  {
+   "cluster_number": 2,
+   "unique_domains": 52,
+   "twin_of": null,
+   "category": "Artificial Intelligence",
+   "title": "Anthropic releases faster, cheaper Claude models before planned IPO",
+   "short_summary": "Anthropic released Claude Fable 5.2 for broad use and restricted Claude Mythos 5.2 to vetted cybersecurity and life-sciences organizations on Nov. 9. The company says both models improve coding, reasoning and vision and generate outputs up to 30% faster than their 5.1 predecessors [theverge.com#1][macrumors.com#1][techcrunch.com#1]. Standard pricing fell from $10 to $8 per million input tokens and from $50 to $40 per million output tokens; an optional mode offers generation up to 2.5 times faster at twice the standard price [thenextweb.com#1][digitaltrends.com#1].\n\nAnthropic says the models handled complex software migrations, designed three working electronic devices and helped solve two open theoretical-physics problems. In a benchmark Anthropic published, Fable 5.2 scored 49.1% on FrontierCode 2.0, ahead of its Opus 5.5 at 45.5% and OpenAI’s GPT-6 Astra at 42.8%; these are company-reported results [indianexpress.com#1][digitaltrends.com#1].\n\nThe launch is Anthropic’s first frontier-model release since Chief Executive Dario Amodei called in September for AI companies to slow development. The company says it extended safety testing, but its system card also reports that the models more often suspected they were being evaluated, complicating predictions about real-world behavior [techcrunch.com#1][hindustantimes.com#1]. Anthropic is preparing for a planned public listing later this month [techxplore.com#1].",
+   "talking_points": [
+    "Cybersecurity access: Mythos 5.2 scored 89.6% on Anthropic’s CVE Rediscovery benchmark, compared with 78.3% for Mythos 5.1; access remains limited to verified organizations [digitaltrends.com#1][macrumors.com#1].",
+    "Fable safeguards: Anthropic says Fable 5.2’s cybersecurity and biology safeguards are as robust as Fable 5.1’s while blocking about 55% fewer requests [macrumors.com#1][business-standard.com#1]."
+   ],
+   "articles": [
+    {
+     "title": "Anthropic Launches Claude Fable 5.2 and Mythos 5.2",
+     "link": "https://www.macrumors.com/2026/11/09/anthropic-launches-claude-fable-5-2/",
+     "domain": "macrumors.com",
+     "date": "2026-11-09T19:38:47+00:00"
+    },
+    {
+     "title": "Anthropic launches new Claude Fable and Mythos 5.2 models",
+     "link": "https://www.theverge.com/ai-artificial-intelligence/1030005/anthropic-claude-fable-mythos-5-2",
+     "domain": "theverge.com",
+     "date": "2026-11-09T19:00:00+00:00"
+    },
+    {
+     "title": "Claude Fable 5.2 and Mythos 5.2 are here to raise the bar for AI coding and scientific research",
+     "link": "https://www.digitaltrends.com/computing/claude-fable-5-2-and-mythos-5-2-are-here-to-raise-the-bar-for-ai-coding-and-scientific-research/",
+     "domain": "digitaltrends.com",
+     "date": "2026-11-09T21:34:17+00:00"
+    },
+    {
+     "title": "Anthropic launches Claude Fable 5.2 and Mythos 5.2, and cuts Fable’s price",
+     "link": "https://thenextweb.com/news/claude-fable-5-2-mythos-5-2-anthropic-launch-price",
+     "domain": "thenextweb.com",
+     "date": "2026-11-09T19:22:39+00:00"
+    },
+    {
+     "title": "Anthropic unveils Claude Fable 5.2, Mythos 5.2 ahead of potential IPO",
+     "link": "https://indianexpress.com/article/technology/artificial-intelligence/anthropic-unveils-claude-fable-5-2-mythos-5-2-ahead-of-potential-ipo-10957120/",
+     "domain": "indianexpress.com",
+     "date": "2026-11-10T02:39:57+00:00"
+    },
+    {
+     "title": "Anthropic releases new Mythos and Fable models amid RSI concerns",
+     "link": "https://techcrunch.com/2026/11/09/anthropic-releases-new-mythos-and-fable-models-amid-rsi-concerns/",
+     "domain": "techcrunch.com",
+     "date": "2026-11-09T19:24:51+00:00"
+    }
+   ]
+  }
+ ]
+}

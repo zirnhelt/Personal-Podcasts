@@ -1,0 +1,17 @@
+{
+ "timestamp": 1794312089,
+ "categories": [
+  {
+   "name": "Technology",
+   "file": "tech.json"
+  },
+  {
+   "name": "AI",
+   "file": "ai.json"
+  },
+  {
+   "name": "Canada",
+   "file": "canada.json"
+  }
+ ]
+}

@@ -48,6 +48,9 @@ _PROFILE_ENUMS = {
     "depth": {"titles", "deep_dive"},
     "schedule": {"daily", "weekly"},
 }
+# Kagi News (Kite) categories per profile: 8 × ~12 clusters ≈ 96 candidates,
+# about three batched Haiku scoring calls. Mirrored in the web UIs' py-parity.
+KITE_MAX_CATEGORIES = 8
 _WEEKDAYS = {
     "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday",
 }
@@ -89,6 +92,8 @@ def load_podcast_profile(name="sample"):
             f"must be a weekday name"
         )
 
+    _validate_kite_sources(name, (merged.get("sources") or {}).get("kite"))
+
     # TRACE enforcement: no profile loads without a structurally valid assessment.
     # The publish gate (trace.assert_publishable) is applied by the generator
     # before an episode is written; here we fail fast on a malformed block.
@@ -97,6 +102,33 @@ def load_podcast_profile(name="sample"):
 
     merged["name"] = name
     return merged
+
+
+def _validate_kite_sources(name, kite):
+    """sources.kite: unique non-empty strings, at most KITE_MAX_CATEGORIES, and —
+    when the committed snapshot (config/kite_categories.json) exists — names Kite
+    actually publishes, so a typo fails at load instead of silently fetching nothing.
+    """
+    if kite is None:
+        return
+    if not isinstance(kite, list) or not all(isinstance(c, str) and c.strip() for c in kite):
+        raise ValueError(f"Profile '{name}' sources.kite must be a list of category names")
+    if len(set(kite)) != len(kite):
+        raise ValueError(f"Profile '{name}' sources.kite has duplicate categories")
+    if len(kite) > KITE_MAX_CATEGORIES:
+        raise ValueError(
+            f"Profile '{name}' sources.kite has {len(kite)} categories "
+            f"(max {KITE_MAX_CATEGORIES})"
+        )
+    import sources  # local import: sources imports nothing from here, keep it that way
+    known = sources.load_kite_category_cache()
+    unknown = sorted(set(kite) - known) if known is not None else []
+    if unknown:
+        raise ValueError(
+            f"Profile '{name}' sources.kite has unknown categories {unknown} "
+            f"(names must match kite.json exactly; if Kite added them, run "
+            f"`python sources.py --refresh-kite-categories`)"
+        )
 
 
 def list_podcast_profiles():
