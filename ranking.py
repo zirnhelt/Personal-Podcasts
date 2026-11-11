@@ -19,7 +19,8 @@ import json
 import os
 from string import Template
 
-from config_loader import load_prompts_config, message_text
+from config_loader import (HAIKU_MODEL, load_prompts_config, message_text,
+                           parse_json_object, small_call_params)
 from dedup_articles import (
     deduplicate_articles,
     cluster_and_rescore_corpus,
@@ -27,7 +28,7 @@ from dedup_articles import (
 )
 import cohere_enrichment
 
-SCORING_MODEL = os.getenv("CLAUDE_SCORING_MODEL", "claude-haiku-4-5-20251001")
+SCORING_MODEL = os.getenv("CLAUDE_SCORING_MODEL") or HAIKU_MODEL
 SCORING_BATCH_SIZE = 40      # articles per Haiku call — batch, don't loop
 SUMMARY_SNIPPET_CHARS = 120  # prompt compression: titles carry most signal
 EVOLVING_BOOST = 2           # developing stories get a bump over cold items
@@ -88,12 +89,13 @@ def _haiku_relevance_scores(articles, profile, client):
                 model=SCORING_MODEL,
                 max_tokens=1500,
                 messages=[{"role": "user", "content": prompt}],
+                **small_call_params(SCORING_MODEL),
             )
             usage = getattr(response, "usage", None)
             print(f"  [api] relevance scoring: {len(chunk)} articles, "
                   f"input_tokens={getattr(usage, 'input_tokens', '?')} "
                   f"output_tokens={getattr(usage, 'output_tokens', '?')}")
-            data = json.loads(message_text(response).strip())
+            data = parse_json_object(message_text(response))
             for entry in data.get("scores", []):
                 idx = entry.get("index")
                 if isinstance(idx, int) and 0 <= idx < len(articles):

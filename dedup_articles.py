@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from difflib import SequenceMatcher
 from pathlib import Path
 
-from config_loader import message_text
+from config_loader import HAIKU_MODEL, message_text, parse_json_object, small_call_params
 import cohere_enrichment
 
 # Default kept for single-show callers/tests; multi-show callers pass podcasts_dir.
@@ -180,7 +180,7 @@ def cluster_and_rescore_corpus(articles, topic_label, client=None, model=None):
         articles: list of article dicts (must have title, summary, _boosted_score or ai_score)
         topic_label: the show's topic focus (used in the Claude prompt for context)
         client: Anthropic client instance (or None to skip Claude fallback)
-        model: Claude model ID to use (defaults to claude-haiku-4-5-20251001)
+        model: Claude model ID to use (defaults to config_loader.HAIKU_MODEL)
 
     Returns:
         articles list with updated _boosted_score, _cluster_suppressed, _topic_cluster fields
@@ -198,7 +198,7 @@ def cluster_and_rescore_corpus(articles, topic_label, client=None, model=None):
         return articles
 
     if model is None:
-        model = "claude-haiku-4-5-20251001"
+        model = HAIKU_MODEL
 
     # Build compact article list for the prompt
     article_list = []
@@ -232,11 +232,16 @@ def cluster_and_rescore_corpus(articles, topic_label, client=None, model=None):
                 model=model,
                 max_tokens=600,
                 messages=[{"role": "user", "content": prompt}],
+                **small_call_params(model),
             )
+            usage = getattr(response, "usage", None)
+            print(f"  [api] story clustering: {len(articles)} articles, "
+                  f"input_tokens={getattr(usage, 'input_tokens', '?')} "
+                  f"output_tokens={getattr(usage, 'output_tokens', '?')}")
             raw = message_text(response).strip()
             if not raw:
-                raise ValueError("empty response from API")
-            data = json.loads(raw)
+                raise ValueError(f"empty response (stop_reason={getattr(response, 'stop_reason', '?')})")
+            data = parse_json_object(raw)
             clusters = data.get("clusters", [])
             last_exc = None
             break

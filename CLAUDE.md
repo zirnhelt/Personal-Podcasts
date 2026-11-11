@@ -105,9 +105,16 @@ stances), `config/prompts.json` (all prompt templates — no show strings in cod
 
 Treat API budget as a first-class constraint on every change.
 
-- **Default to the cheapest model.** Haiku for scoring/clustering; Sonnet only
-  for script generation + polish where dialogue quality demands it. Escalate
-  only when demonstrably required — justify explicitly.
+- **Default to the cheapest model.** Haiku for scoring/clustering
+  (`config_loader.HAIKU_MODEL`, default `claude-haiku-5-5`, override with
+  `CLAUDE_HAIKU_MODEL`); Sonnet only for script generation + polish where
+  dialogue quality demands it. Escalate only when demonstrably required —
+  justify explicitly.
+- **Thinking is on by default on 5.x models and shares `max_tokens`.** Small
+  structured calls pass `small_call_params(model)` (the right "off" differs per
+  model; the wrong one is a 400). Script and polish check `stop_reason`: a
+  `max_tokens` or `refusal` stop never airs. Budgets over 16000 go through
+  `send_claude`, which streams.
 - **Prompt compression is mandatory.** Strip filler and redundant context
   before sending; ranking truncates summaries to 120 chars.
 - **Batch where possible.** Relevance scoring is one call per 40 articles;
